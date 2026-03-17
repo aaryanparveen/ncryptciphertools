@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %} / Cipher Identifier{% endblock %}
+
+{% block content %}
+<div class="hero" id="hero">
+    <div class="hero-badge" id="heroBadge">
+        <span>{{ ciphers|length }} ciphers loaded</span>
+    </div>
+    <h1 id="heroTitle">Cipher Identifier</h1>
+    <p id="heroDesc">Paste ciphertext below. Auto-detection begins as you type.</p>
+</div>
+
+<div class="input-area" id="inputArea">
+    <div class="editor-card">
+        <textarea id="idInput" class="form-control" placeholder="Paste ciphertext here..." style="min-height:200px; font-size:0.85rem; border:none; background:transparent; padding:1.2rem; resize:none;"></textarea>
+        <div class="input-hint">
+            <span class="hint-left" id="charCount">0 characters</span>
+            <div class="hint-right">
+                <span class="shortcut-hint"><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> solve</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="live-stats" id="inputStats">
+        <div class="live-stat"><span class="label">Len</span> <strong id="statLen">0</strong></div>
+        <div class="live-stat"><span class="label">Alpha</span> <strong id="statAlpha">0</strong></div>
+        <div class="live-stat"><span class="label">Entropy</span> <strong id="statEntropy">0.00</strong></div>
+        <div class="live-stat"><span class="label">IoC</span> <strong id="statIoC">0.0000</strong></div>
+        <div class="live-stat"><span class="label">English</span> <strong id="statEnglish">&mdash;</strong></div>
+    </div>
+
+    <div class="actions-bar" id="actionsBar">
+        <input id="solveTarget" class="form-control" placeholder="Optional target plaintext..."
+            style="max-width:320px; font-size:0.74rem;">
+        <button onclick="solve()" class="btn btn-solve" id="solveBtn">SOLVE</button>
+    </div>
+</div>
+
+<div id="resultsArea" class="hidden" style="margin-top:2.2rem; max-width:880px; margin-left:auto; margin-right:auto;">
+    <div class="section-header">
+        <span>Probable Matches</span>
+        <span class="count" id="resultCount"></span>
+    </div>
+    <div class="bento-grid" id="resultsGrid" style="grid-template-columns:repeat(2,1fr);"></div>
+</div>
+
+<div style="max-width:880px; margin:2rem auto 0;">
+    <div class="section-header" id="catHeader">
+        <span>Browse by Category</span>
+    </div>
+    <div class="category-tabs" id="categoryLinks">
+        {% set categories_seen = [] %}
+        {% for id, cipher in ciphers.items() %}
+        {% if cipher.category not in categories_seen %}
+        {% if categories_seen.append(cipher.category) %}{% endif %}
+        <a href="{{ url_for('list_ciphers') }}?cat={{ cipher.category|lower|replace(' ', '-') }}" class="category-tab cat-link">{{ cipher.category }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div id="solveArea" class="hidden" style="margin-top:2.2rem; max-width:880px; margin-left:auto; margin-right:auto;">
+    <div class="section-header">
+        <span>Solve Results</span>
+        <span class="count" id="solveCount"></span>
+    </div>
+    <div class="bento-grid" id="solveGrid"></div>
+</div>
+
+<script>
+    const idInput = document.getElementById('idInput');
+    let analyzeTimer = null;
+    let lastAnalyzedText = '';
+
+    function calcEntropy(text) {
+        if (!text) return 0;
+        const freq = {};
+        for (const c of text) freq[c] = (freq[c] || 0) + 1;
+        let e = 0; const n = text.length;
+        for (const c in freq) { const p = freq[c] / n; e -= p * Math.log2(p); }
+        return e;
+    }
+
+    function updateInputStats() {
+        const text = idInput.value;
+        const len = text.length;
+        const alpha = (text.match(/[a-zA-Z]/g) || []).length;
+        const ent = calcEntropy(text);
+        const ioc = typeof FrequencyAnalysis !== 'undefined' ? FrequencyAnalysis.calculateIoC(text) : 0;
+
+        document.getElementById('charCount').textContent = len + ' character' + (len !== 1 ? 's' : '');
+
+        animateStat('statLen', len);
+        animateStat('statAlpha', alpha);
+        document.getElementById('statEntropy').textContent = ent.toFixed(2);
+        document.getElementById('statIoC').textContent = ioc.toFixed(4);
+    }
+
+    function animateStat(id, value) {
+        const el = document.getElementById(id);
+        const old = parseInt(el.textContent) || 0;
+        if (old !== value) {
+            el.textContent = value;
+            gsap.fromTo(el, {scale:1.2, color:'var(--red)'}, {scale:1, color:'var(--tx-0)', duration:0.3, ease:'power2.out'});
+        }
+    }
+
+    idInput.addEventListener('input', () => {
+        updateInputStats();
+        clearTimeout(analyzeTimer);
+        const text = idInput.value.trim();
+        if (text.length >= 3 && text !== lastAnalyzedText) {
+            analyzeTimer = setTimeout(() => autoAnalyze(text), 500);
+        } else if (text.length < 3) {
+            document.getElementById('resultsArea').classList.add('hidden');
+        }
+    });
+
+    async function autoAnalyze(text) {
+        lastAnalyzedText = text;
+        try {
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            renderResults(data.results || [], text);
+        } catch (e) {
+        }
+    }
+
+    function renderResults(results, text) {
+        const grid = document.getElementById('resultsGrid');
+        const area = document.getElementById('resultsArea');
+        grid.innerHTML = '';
+
+        if (!results.length) {
+            area.classList.add('hidden');
+            return;
+        }
+
+        document.getElementById('resultCount').textContent = results.length + ' found';
+        area.classList.remove('hidden');
+
+        results.forEach((r, i) => {
+            const pct = Math.round(r.score * 100);
+            const bc = pct > 70 ? 'confidence-high' : pct > 40 ? 'confidence-med' : 'confidence-low';
+            const slug = r.category.toLowerCase().replace(/[\s\/]+/g, '-');
+            const card = document.createElement('a');
+            card.href = `/cipher/${r.id}?input=${encodeURIComponent(text)}`;
+            card.className = `bento-card result-card cat-${slug}`;
+            card.style.cssText = 'text-decoration:none; opacity:0;';
+            card.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                        <h3 style="font-size:0.95rem;margin-bottom:0.15rem">${r.name}</h3>
+                        <div style="font-size:0.62rem;color:var(--tx-3);text-transform:uppercase;letter-spacing:1.5px;font-weight:600">${r.category}</div>
+                    </div>
+                    <span class="confidence-badge ${bc}">${pct}%</span>
+                </div>`;
+            grid.appendChild(card);
+        });
+
+        gsap.fromTo(grid.children,
+            { opacity:0, y:20, scale:0.97 },
+            { opacity:1, y:0, scale:1, duration:0.4, stagger:0.05, ease:'power2.out' }
+        );
+
+        area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function solve() {
+        const text = idInput.value.trim();
+        const targetPlaintext = document.getElementById('solveTarget').value.trim();
+        if (!text) { showToast('Enter ciphertext to solve', 'error'); return; }
+
+        const btn = document.getElementById('solveBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> SOLVING';
+
+        try {
+            const t0 = performance.now();
+            const res = await fetch('/api/solve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, mode: 'recursive', target_plaintext: targetPlaintext })
+            });
+            const data = await res.json();
+            const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+            const area = document.getElementById('solveArea');
+            const grid = document.getElementById('solveGrid');
+            grid.innerHTML = '';
+
+            if (data.error) {
+                grid.innerHTML = `<div class="alert" style="grid-column:1/-1;">Error: ${data.error}</div>`;
+                area.classList.remove('hidden');
+                btn.disabled = false; btn.textContent = 'SOLVE';
+                return;
+            }
+
+            if (!data.results || data.results.length === 0) {
+                grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon"></div><p>No solutions found. Try a different cipher approach.</p></div>';
+                area.classList.remove('hidden');
+                btn.disabled = false; btn.textContent = 'SOLVE';
+                return;
+            }
+
+            document.getElementById('solveCount').textContent = `${data.results.length} results in ${elapsed}s`;
+
+            data.results.forEach((res, i) => {
+                const card = document.createElement('div');
+                card.className = 'bento-card result-card';
+                card.style.cssText = 'cursor:pointer; opacity:0;';
+                const content = res.plaintext || '';
+                const pct = Math.round(res.confidence);
+                const bc = pct > 60 ? 'confidence-high' : pct > 30 ? 'confidence-med' : 'confidence-low';
+                const meta = res.metadata || {};
+                let keyStr = res.key || '';
+
+                let pathHtml = '';
+                if (meta.path && Array.isArray(meta.path) && meta.path.length > 0) {
+                    const steps = meta.path.map(s => `<span class="path-step">${s}</span>`);
+                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow"></span>')}</div>`;
+                    keyStr = '';
+                }
+
+                let targetBadge = meta.target_hit ? '<span class="flag-badge">TARGET</span> ' : '';
+
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                        <div style="display:flex; align-items:center; gap:0.4rem;">
+                            ${targetBadge}
+                            <span style="font-family:var(--mono); font-size:0.78rem; color:var(--tx-0); font-weight:700;">${keyStr}</span>
+                        </div>
+                        <span class="confidence-badge ${bc}">${pct}%</span>
+                    </div>
+                    ${pathHtml}
+                    <div class="result-preview">${content.substring(0,250)}${content.length>250?'...':''}</div>
+                    <div class="output-actions" style="margin-top:auto; padding-top:0.5rem;">
+                        <button onclick="event.stopPropagation(); copyToClipboard(\`${content.replace(/`/g,'\\`').replace(/\\/g,'\\\\')}\`)">COPY</button>
+                    </div>`;
+                card.onclick = () => copyToClipboard(content);
+                grid.appendChild(card);
+            });
+
+            area.classList.remove('hidden');
+
+            gsap.fromTo(grid.children,
+                { opacity:0, y:25, scale:0.96 },
+                { opacity:1, y:0, scale:1, duration:0.45, stagger:0.06, ease:'back.out(1.2)' }
+            );
+
+            area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast(`${data.results.length} solutions in ${elapsed}s`, 'success');
+        } catch (e) {
+            showToast('Solve failed: ' + e.message, 'error');
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'SOLVE';
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); solve(); }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.cat-link').forEach(link => {
+            link.style.opacity = '1';
+            link.style.visibility = 'visible';
+        });
+
+        if (typeof gsap !== 'undefined') {
+            gsap.from('#heroBadge', { opacity:0, y:-10, duration:0.5, ease:'power2.out' });
+            gsap.from('#heroTitle', { opacity:0, y:20, duration:0.6, delay:0.1, ease:'power2.out' });
+            gsap.from('#heroDesc', { opacity:0, y:15, duration:0.5, delay:0.2, ease:'power2.out' });
+            gsap.from('#inputArea', { opacity:0, y:30, duration:0.6, delay:0.3, ease:'power2.out' });
+            gsap.from('#catHeader', { opacity:0, x:-15, duration:0.4, delay:0.5, ease:'power2.out' });
+        }
+    });
+</script>
+{% endblock %}

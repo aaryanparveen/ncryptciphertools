@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %} / Tools{% endblock %}
+
+{% block content %}
+<div class="list-header" id="listHeader">
+    <h1>Tools</h1>
+    <p>{{ ciphers|length }} cipher modules across multiple categories.</p>
+    </div>
+
+<div class="search-wrapper" id="searchWrapper">
+    <input type="text" id="paramsSearch" class="form-control" placeholder="Search ciphers..." onkeyup="filterCiphers()">
+    </div>
+
+<div class="category-tabs" id="categoryTabs">
+    <button class="category-tab active" data-cat="all" onclick="filterCategory('all', this)">All <span class="count">{{ ciphers|length }}</span></button>
+    {% set cat_counts = {} %}
+    {% for id, cipher in ciphers.items() %}
+    {% if cipher.category not in cat_counts %}{% if cat_counts.update({cipher.category: 0}) %}{% endif %}{% endif %}
+    {% if cat_counts.update({cipher.category: cat_counts[cipher.category] + 1}) %}{% endif %}
+    {% endfor %}
+    {% for cat, count in cat_counts.items() %}
+    <button class="category-tab" data-cat="{{ cat|lower|replace(' ', '-') }}" onclick="filterCategory('{{ cat|lower|replace(' ', '-') }}', this)">{{ cat }} <span class="count">{{ count }}</span></button>
+    {% endfor %}
+</div>
+
+<div class="bento-grid" id="cipherGrid">
+    {% for id, cipher in ciphers.items() %}
+    <a href="{{ url_for('cipher_page', cipher_id=id) }}" class="bento-card cipher-item cat-{{ cipher.category|lower|replace(' ', '-') }}" data-name="{{ cipher.name|lower }}" data-cat="{{ cipher.category|lower|replace(' ', '-') }}" style="text-decoration:none; opacity:0;">
+        <div style="flex:1">
+            <h2 style="font-size:1.05rem; margin-bottom:0.2rem; color:#fff;">{{ cipher.name }}</h2>
+            <p style="color:var(--tx-2); font-size:0.78rem; margin:0 0 0.5rem 0; line-height:1.5;">{{ cipher.description[:110] }}{% if cipher.description|length > 110 %}...{% endif %}</p>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.6rem; text-transform:uppercase; letter-spacing:1.5px; color:var(--tx-3); font-weight:700;">{{ cipher.category }}</span>
+            <span style="font-size:0.62rem; color:var(--tx-3); font-family:var(--mono); letter-spacing:0.5px; opacity:0.6;">{{ id }}</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<div id="noResults" class="hidden">
+    <div class="empty-state">
+        <div class="empty-icon">&#8709;</div>
+        <p>No ciphers match your search.</p>
+    </div>
+</div>
+
+<script>
+    let activeCategory = 'all';
+
+    function filterCiphers() {
+        const q = document.getElementById('paramsSearch').value.toLowerCase();
+        const items = document.querySelectorAll('.cipher-item');
+        let vis = 0;
+        items.forEach(item => {
+            const name = item.getAttribute('data-name');
+            const cat = item.getAttribute('data-cat');
+            const ok = name.includes(q) && (activeCategory === 'all' || cat === activeCategory);
+            item.style.display = ok ? '' : 'none';
+            if (ok) vis++;
+        });
+        document.getElementById('noResults').classList.toggle('hidden', vis > 0);
+    }
+
+    function filterCategory(cat, btn) {
+        activeCategory = cat;
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        filterCiphers();
+
+        const visible = document.querySelectorAll('.cipher-item[style*="display: "],.cipher-item:not([style*="display: none"])');
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(
+                Array.from(visible).filter(el => el.style.display !== 'none'),
+                { opacity:0, y:15 },
+                { opacity:1, y:0, duration:0.35, stagger:0.02, ease:'power2.out' }
+            );
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const p = new URLSearchParams(window.location.search);
+        const cat = p.get('cat');
+        if (cat) {
+            const btn = document.querySelector(`.category-tab[data-cat="${cat}"]`);
+            if (btn) filterCategory(cat, btn);
+        }
+
+        if (typeof gsap !== 'undefined') {
+            gsap.from('#listHeader', { opacity:0, y:20, duration:0.5, ease:'power2.out' });
+            gsap.from('#searchWrapper', { opacity:0, y:15, duration:0.4, delay:0.1, ease:'power2.out' });
+            gsap.from('.category-tab', { opacity:0, y:10, scale:0.95, duration:0.3, stagger:0.025, delay:0.15, ease:'power2.out' });
+
+            const cards = document.querySelectorAll('.cipher-item');
+            gsap.fromTo(cards,
+                { opacity:0, y:25, scale:0.97 },
+                { opacity:1, y:0, scale:1, duration:0.4, stagger:0.03, delay:0.25, ease:'power2.out' }
+            );
+        }
+    });
+</script>
+{% endblock %}
