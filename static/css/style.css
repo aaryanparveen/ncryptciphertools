@@ -1656,9 +1656,9 @@ select.form-control {
         pointer-events: none;
         z-index: 20000;
         transform: translate3d(-100px, -100px, 0);
-        background: rgba(196, 48, 80, 0.28);
-        border: 1.5px solid rgba(255, 108, 142, 0.75);
-        box-shadow: 0 0 20px rgba(196, 48, 80, 0.22);
+        background: rgba(255, 255, 255, 0.22);
+        border: 1.5px solid rgba(255, 255, 255, 0.78);
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.16);
         backdrop-filter: blur(1px);
         will-change: transform, width, height, border, border-radius, background-color;
     }
@@ -1673,8 +1673,9 @@ select.form-control {
         pointer-events: none;
         z-index: 20001;
         transform: translate3d(-100px, -100px, 0);
-        background: rgba(255, 98, 134, 1);
-        box-shadow: 0 0 10px rgba(196, 48, 80, 0.65);
+        background: rgba(255, 255, 255, 1);
+        mix-blend-mode: difference;
+        box-shadow: none;
         will-change: transform, width, height, background-color;
     }
 }

@@ -102,6 +102,7 @@ let smoothScaleX = 1;
 let smoothScaleY = 1;
 let smoothBorderOpacity = 0;
 let smoothBgAlpha = 1;
+let smoothMixBlend = 1;
 function smoothDamp(speed, deltaRatio) {
     return 1.0 - Math.pow(1.0 - speed, deltaRatio);
 }
@@ -132,6 +133,7 @@ gsap.ticker.add(() => {
     let wantScaleX = targetScale;
     let wantScaleY = targetScale;
     let wantRotation = currentRotation;
+    let wantMixBlend = 1;
     let wantBorderStyle = 0;
     let wantBgAlpha = 1;
 
@@ -165,6 +167,7 @@ gsap.ticker.add(() => {
 
         wantRotation = velocityRotation;
         morphRadius = '50%';
+        wantMixBlend = 1 - closeness;
 
         wantBorderStyle = closeness;
         wantBgAlpha = 1 - (closeness * 0.85);
@@ -179,6 +182,7 @@ gsap.ticker.add(() => {
 
         wantBorderStyle = 1;
         wantBgAlpha = 0.12;
+        wantMixBlend = 1;
 
     } else {
         wantScaleX = velocityDeformX;
@@ -187,6 +191,7 @@ gsap.ticker.add(() => {
         morphRadius = '50%';
         wantBorderStyle = 0;
         wantBgAlpha = 1;
+        wantMixBlend = 1;
     }
     const scaleDt = smoothDamp(0.22, deltaRatio);
     const rotDt = smoothDamp(0.4, deltaRatio);
@@ -197,19 +202,20 @@ gsap.ticker.add(() => {
     currentRotation = lerpAngle(currentRotation, wantRotation, rotDt);
     smoothBorderOpacity += (wantBorderStyle - smoothBorderOpacity) * styleDt;
     smoothBgAlpha += (wantBgAlpha - smoothBgAlpha) * styleDt;
+    smoothMixBlend += (wantMixBlend - smoothMixBlend) * styleDt;
     const borderWeight = 1.5 + smoothBorderOpacity * 0.5;
     const borderAlpha = smoothBorderOpacity;
     const bgAlpha = smoothBgAlpha;
 
     let bgColor, border;
     if (borderAlpha > 0.01) {
-        bgColor = `rgba(238, 202, 214, ${(bgAlpha * 0.82).toFixed(3)})`;
-        border = `${borderWeight.toFixed(1)}px solid rgba(255, 148, 170, ${(0.45 + borderAlpha * 0.35).toFixed(3)})`;
+        bgColor = `rgba(255, 255, 255, ${(bgAlpha * 0.95).toFixed(3)})`;
+        border = `${borderWeight.toFixed(1)}px solid rgba(255, 255, 255, ${(0.6 + borderAlpha * 0.4).toFixed(3)})`;
     } else {
-        bgColor = `rgba(228, 184, 198, ${(bgAlpha * 0.75).toFixed(3)})`;
+        bgColor = `rgba(255, 255, 255, ${bgAlpha.toFixed(3)})`;
         border = '0px solid transparent';
     }
-    const mixBlend = 'normal';
+    const mixBlend = smoothMixBlend > 0.5 ? 'difference' : 'normal';
     const zoomCompensation = baseDPR / window.devicePixelRatio;
     const size = BASE_SIZE * zoomCompensation;
     const half = size / 2;
