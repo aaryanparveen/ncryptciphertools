@@ -6,13 +6,18 @@ from pydantic import BaseModel
 from typing import Optional
 import pkgutil
 import importlib
+from pathlib import Path
 import config
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
 app = FastAPI(title="nCrypt", docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def _custom_url_for(name, **kw):
