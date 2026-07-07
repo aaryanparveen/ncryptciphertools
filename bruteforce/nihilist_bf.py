@@ -60,7 +60,7 @@ def bruteforce_nihilist(text, max_results=10):
                 if not pt:
                     continue
                 score = score_text_english_likelihood(pt)
-                if score > 10:
+                if score > 1.5:
                     results.append(CipherResult(pt, round(score, 1),
                         key=f"grid={grid_word}, key={key_word}",
                         metadata={'method': 'dictionary',

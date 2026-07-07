@@ -1,9 +1,20 @@
-from utils.analysis import score_text_english_likelihood, clean_text
+"""Porta key-recovery bruteforce (reciprocal polyalphabetic, 13 key rows).
+
+Each key letter selects a tableau row (row = keyletter // 2, so A/B share row 0, ...).
+Recovery seeds each column with its best row by chi-squared against English letter
+frequencies, then runs the shared quadgram hill-climb over the 13 rows and ranks by
+quadgram fitness (see keyed_common). Previously each column was scored with BetterMagic
+applied to a single isolated column, which its structural heuristics are not built for.
+"""
+
+from utils.analysis import clean_text, score_quadgram
 from utils.corpus import ENGLISH_FREQS
-from utils.dictionary import COMMON_WORDS
-from ciphers.interface import CipherResult
+from utils.dictionary import KEY_CANDIDATES
+from bruteforce.keyed_common import polish_key, rank_candidates
 from collections import Counter
 
+POLISH_TOP = 6
+MAX_KEYLEN = 13
 
 PORTA_TABLEAU = [
     "NOPQRSTUVWXYZABCDEFGHIJKLM",
@@ -21,6 +32,12 @@ PORTA_TABLEAU = [
     "ZNOPQRSTUVWXYBCDEFGHIJKLMA",
 ]
 
+_PORTA_DEC = [[ord(PORTA_TABLEAU[r][c]) - 65 for c in range(26)] for r in range(13)]
+
+
+def _porta_decode(c, k):
+    return _PORTA_DEC[(k // 2) % 13][c]
+
 
 def _decrypt_porta(text, key):
     result = []
@@ -31,14 +48,33 @@ def _decrypt_porta(text, key):
         if c.isalpha():
             base = ord('A') if c.isupper() else ord('a')
             k = ord(key_upper[ki % kl]) - ord('A')
-            row = k // 2
             x = ord(c.upper()) - ord('A')
-            p = ord(PORTA_TABLEAU[row][x]) - ord('A')
-            result.append(chr(p + base))
+            result.append(chr(_PORTA_DEC[(k // 2) % 13][x] + base))
             ki += 1
         else:
             result.append(c)
     return ''.join(result)
+
+
+def _seed_key(ct, key_length):
+    """Per-column best row by chi-squared vs English letter frequencies."""
+    expected = [ENGLISH_FREQS.get(chr(li + 65), 0.0) for li in range(26)]
+    key_rows = []
+    for col_idx in range(key_length):
+        col = ct[col_idx::key_length]
+        if not col:
+            key_rows.append(0)
+            continue
+        total = len(col)
+        best_row, best_chi2 = 0, float('inf')
+        for r in range(13):
+            counts = Counter(_PORTA_DEC[r][c] for c in col)
+            chi2 = sum(((counts.get(li, 0) / total * 100 - expected[li]) ** 2)
+                       / max(expected[li], 0.01) for li in range(26))
+            if chi2 < best_chi2:
+                best_chi2, best_row = chi2, r
+        key_rows.append(best_row * 2)
+    return key_rows
 
 
 def bruteforce_porta(text, max_results=10):
@@ -46,56 +82,27 @@ def bruteforce_porta(text, max_results=10):
     if len(clean) < 8:
         return []
 
-    results = []
-    seen_keys = set()
+    ct = [ord(c) - ord('A') for c in clean]
+    n = len(ct)
+    max_kl = max(1, min(MAX_KEYLEN, n // 4))
+    candidates = []
 
-    for klen in range(1, min(13, len(clean) // 2)):
-        key = []
-        for col_idx in range(klen):
-            col = clean[col_idx::klen]
-            if not col:
-                key.append('A')
-                continue
-            best_row = 0
-            best_score = -float('inf')
-            for row in range(13):
-                pt_col = ''
-                for c in col:
-                    x = ord(c) - ord('A')
-                    pt_col += PORTA_TABLEAU[row][x]
-                score = score_text_english_likelihood(pt_col)
-                if score > best_score:
-                    best_score = score
-                    best_row = row
-            key.append(chr(best_row * 2 + ord('A')))
-
-        key_str = ''.join(key)
-        if key_str not in seen_keys:
-            seen_keys.add(key_str)
-            pt = _decrypt_porta(text, key_str)
-            score = score_text_english_likelihood(pt)
-            if score > 5:
-                results.append(CipherResult(pt, round(score, 1), key=key_str,
-                    metadata={'key_length': klen, 'method': 'frequency_analysis',
-                              'cipher_name': 'Porta', 'cipher_id': 'porta_cipher'}))
-
-    if len(clean) < 500:
-        for word in list(COMMON_WORDS)[:200]:
+    if n < 3000:
+        for word in KEY_CANDIDATES:
             key = word.upper()
-            if not key.isalpha() or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            pt = _decrypt_porta(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 15:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'method': 'dictionary',
-                              'cipher_name': 'Porta', 'cipher_id': 'porta_cipher'}))
+            candidates.append((_decrypt_porta(text, key), key, len(key), 'dictionary'))
 
-    results.sort(key=lambda x: x.confidence, reverse=True)
-    unique, seen_pt = [], set()
-    for r in results:
-        if r.plaintext[:200] not in seen_pt:
-            seen_pt.add(r.plaintext[:200])
-            unique.append(r)
-    return unique[:max_results]
+    seeded = []
+    for klen in range(1, max_kl + 1):
+        ks = _seed_key(ct, klen)
+        pt = ''.join(chr(_porta_decode(ct[i], ks[i % klen]) + 65) for i in range(n))
+        seeded.append((score_quadgram(pt), klen, ks))
+
+    seeded.sort(key=lambda r: r[0], reverse=True)
+    for rank, (_q, klen, ks) in enumerate(seeded):
+        if rank < POLISH_TOP:
+            ks, _ = polish_key(ct, ks, _porta_decode, range(0, 26, 2))
+        key = ''.join(chr(k + 65) for k in ks)
+        candidates.append((_decrypt_porta(text, key), key, klen, 'chi_squared+polish'))
+
+    return rank_candidates(candidates, 'Porta', 'porta_cipher', max_results=max_results)

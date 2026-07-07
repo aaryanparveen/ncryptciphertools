@@ -58,7 +58,7 @@ def bruteforce_bifid(text, max_results=10):
             grid = _make_grid(key)
             pt = _decrypt_bifid(clean, grid)
             score = score_text_english_likelihood(pt)
-            if score > 10:
+            if score > 1.5:
                 results.append(CipherResult(pt, round(score, 1), key=key,
                     metadata={'method': 'dictionary',
                               'cipher_name': 'Bifid', 'cipher_id': 'bifid_cipher'}))
@@ -86,7 +86,7 @@ def bruteforce_bifid(text, max_results=10):
 
         pt = _decrypt_bifid(clean, key)
         confidence = score_text_english_likelihood(pt)
-        if confidence > 5:
+        if confidence > 1.0:
             results.append(CipherResult(pt, round(confidence, 1), key=''.join(key),
                 metadata={'method': 'simulated_annealing',
                           'cipher_name': 'Bifid', 'cipher_id': 'bifid_cipher'}))

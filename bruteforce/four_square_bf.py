@@ -52,7 +52,7 @@ def bruteforce_four_square(text, max_results=10):
                 g2 = _make_grid(w2)
                 pt = _decrypt_four_square(clean, g1, g2)
                 score = score_text_english_likelihood(pt)
-                if score > 15:
+                if score > 2.5:
                     results.append(CipherResult(pt, round(score, 1),
                         key=f"{w1}/{w2}",
                         metadata={'method': 'dictionary',

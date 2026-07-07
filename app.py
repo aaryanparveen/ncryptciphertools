@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import pkgutil
 import importlib
 from pathlib import Path
@@ -60,8 +60,9 @@ class TextInput(BaseModel):
     cipher_id: Optional[str] = None
     mode: Optional[str] = 'decrypt'
     key: Optional[str] = ''
+    crib: Optional[str] = ''
     target_plaintext: Optional[str] = ''
-    ai_assist: Optional[bool] = False
+    disabled_ciphers: Optional[List[str]] = None
     debug: Optional[bool] = False
 
 
@@ -90,12 +91,12 @@ def _ctx(request, **extra):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", _ctx(request))
+    return templates.TemplateResponse(request, "index.html", _ctx(request))
 
 
 @app.get("/ciphers", response_class=HTMLResponse)
 async def list_ciphers(request: Request):
-    return templates.TemplateResponse("list.html", _ctx(request))
+    return templates.TemplateResponse(request, "list.html", _ctx(request))
 
 
 @app.get("/cipher/{cipher_id}", response_class=HTMLResponse)
@@ -103,7 +104,7 @@ async def cipher_page(request: Request, cipher_id: str):
     cipher = CIPHER_REGISTRY.get(cipher_id)
     if not cipher:
         return HTMLResponse("Not found", 404)
-    return templates.TemplateResponse("cipher.html", _ctx(request, cipher=cipher))
+    return templates.TemplateResponse(request, "cipher.html", _ctx(request, cipher=cipher))
 
 
 @app.post("/api/analyze")
@@ -130,6 +131,38 @@ async def process_cipher(data: TextInput):
         return JSONResponse({"error": "Cipher not found"}, 404)
     text = data.text or ''
     try:
+        if cipher.id == 'recursive_solver' and data.mode != 'encrypt':
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(
+                _executor,
+                lambda: cipher.crack(
+                    text,
+                    registry=CIPHER_REGISTRY,
+                    key=data.key,
+                    crib=data.crib,
+                    disabled_ciphers=data.disabled_ciphers or [],
+                ),
+            )
+            if not results:
+                return {"result": "(no solution found)"}
+            CRIB = (data.crib or '').strip()
+            CRIB_THRESHOLD = 1000.0
+            DECENT_CONF = 8.0
+            best = None
+            for r in results:
+                conf = float(r.confidence or 0)
+                if conf >= CRIB_THRESHOLD:
+                    best = r
+                    break
+            if best is None:
+                decent = [r for r in results if float(r.confidence or 0) >= DECENT_CONF]
+                pool = decent or results
+                best = min(pool, key=lambda r: (len((r.metadata or {}).get('path', [])),
+                                                 -float(r.confidence or 0)))
+            path = ' -> '.join(best.metadata.get('path', [])) if best.metadata else ''
+            header = f"# {round(best.confidence, 1)}  {path}\n" if path else ''
+            return {"result": header + best.plaintext}
+
         if data.mode == 'encrypt':
             result = cipher.encrypt(text, data.key)
         else:
@@ -153,6 +186,8 @@ async def crack_cipher(data: TextInput):
                 text,
                 registry=CIPHER_REGISTRY,
                 key=data.key,
+                crib=data.crib,
+                disabled_ciphers=data.disabled_ciphers or [],
                 target_plaintext=data.target_plaintext,
                 debug=data.debug,
             ),
@@ -211,6 +246,7 @@ async def universal_bruteforce(data: TextInput):
             text,
             CIPHER_REGISTRY,
             max_overall=50,
+            disabled_ciphers=data.disabled_ciphers or [],
             target_plaintext=data.target_plaintext,
         ),
     )
@@ -232,11 +268,14 @@ async def solve(data: TextInput):
                     text,
                     registry=CIPHER_REGISTRY,
                     key=data.key,
+                    crib=data.crib,
+                    disabled_ciphers=data.disabled_ciphers or [],
                     target_plaintext=data.target_plaintext,
                     debug=data.debug,
                 ),
             )
             results = _apply_target_priority(results, data.target_plaintext)
+
             payload = {"results": [r.to_dict() for r in results]}
             if data.debug and hasattr(solver, 'last_debug'):
                 payload['debug'] = getattr(solver, 'last_debug', {})
@@ -250,6 +289,7 @@ async def solve(data: TextInput):
             lambda: run_universal_bruteforce(
                 text,
                 CIPHER_REGISTRY,
+                disabled_ciphers=data.disabled_ciphers or [],
                 target_plaintext=data.target_plaintext,
             ),
         )
@@ -257,18 +297,6 @@ async def solve(data: TextInput):
         return {"results": [r.to_dict() for r in results]}
 
     return {"results": []}
-
-
-@app.post("/api/ai_solve")
-async def ai_solve(data: TextInput):
-    from utils.ai_solver import orchestrate_solve
-    text = data.text or ''
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
-        _executor,
-        lambda: orchestrate_solve(text, CIPHER_REGISTRY, target_plaintext=data.target_plaintext),
-    )
-    return result
 
 
 @app.post("/api/auto_process")
@@ -338,5 +366,8 @@ async def render_grid(data: TextInput):
 load_ciphers()
 
 if __name__ == '__main__':
+    import os
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', '5000'))
+    uvicorn.run(app, host=host, port=port)

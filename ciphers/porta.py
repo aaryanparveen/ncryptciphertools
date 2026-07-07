@@ -1,4 +1,4 @@
-from .interface import BaseCipher, CipherResult
+from .interface import BaseCipher
 
                
 PORTA_TABLE = [
@@ -54,44 +54,9 @@ class PortaCipher(BaseCipher):
         return self.encrypt(text, key)                       
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood, clean_text
-        clean = clean_text(text)
-        if len(clean) < 10:
-            return []
-        results = []
-        for klen in range(1, min(12, len(clean) // 2)):
-            key = self._find_key(clean, klen)
-            pt = self.decrypt(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 10:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen}))
-        results.sort(key=lambda x: x.confidence, reverse=True)
-        return results[:10]
-
-    def _find_key(self, clean_text, key_length):
-        from utils.analysis import score_text_english_likelihood
-        key = []
-        for i in range(key_length):
-            col = clean_text[i::key_length]
-            best_letter = 'A'
-            best_score = -1
-            for k in range(0, 26, 2):
-                decrypted = ''
-                row = k // 2
-                for c in col:
-                    p = ord(c) - ord('A')
-                    if p < 13:
-                        decrypted += PORTA_TABLE[row][p]
-                    else:
-                        idx = PORTA_TABLE[row].index(c)
-                        decrypted += chr(idx + ord('A'))
-                score = score_text_english_likelihood(decrypted)
-                if score > best_score:
-                    best_score = score
-                    best_letter = chr(k + ord('A'))
-            key.append(best_letter)
-        return ''.join(key)
+        """Delegate to the specialized bruteforcer (chi-squared seed + quadgram polish)."""
+        from bruteforce.porta_bf import bruteforce_porta
+        return bruteforce_porta(text, max_results=kwargs.get('max_results', 10))
 
     def identify(self, text):
         from utils.analysis import calculate_ioc, clean_text

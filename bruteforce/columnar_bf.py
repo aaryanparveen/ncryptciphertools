@@ -47,7 +47,7 @@ def bruteforce_columnar(text, max_results=10):
             try:
                 pt = _decrypt_columnar(text, word.upper())
                 score = score_text_english_likelihood(pt)
-                if score > 15:
+                if score > 2.5:
                     results.append(CipherResult(pt, round(score, 1), key=word.upper(),
                         metadata={'cipher_name': 'Columnar Transposition',
                                   'cipher_id': 'columnar_transposition'}))
@@ -62,7 +62,7 @@ def bruteforce_columnar(text, max_results=10):
             try:
                 pt = _decrypt_columnar(text, key)
                 score = score_text_english_likelihood(pt)
-                if score > 20:
+                if score > 3.5:
                     results.append(CipherResult(pt, round(score, 1), key=key,
                         metadata={'cipher_name': 'Columnar Transposition',
                                   'cipher_id': 'columnar_transposition'}))

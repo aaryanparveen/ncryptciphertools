@@ -15,7 +15,7 @@ def bruteforce_xor_single(text, max_results=10):
             pt = bytes(b ^ key_byte for b in data).decode('ascii')
             if all(c.isprintable() or c in '\n\r\t' for c in pt):
                 score = score_text_english_likelihood(pt)
-                if score > 10:
+                if score > 1.5:
                     results.append(CipherResult(pt, round(score, 1),
                         key=f"0x{key_byte:02X}",
                         metadata={'key_byte': key_byte, 'cipher_name': 'XOR',
@@ -44,7 +44,7 @@ def bruteforce_xor_repeating(text, max_key_len=5, max_results=10):
             pt = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data)).decode('ascii')
             if all(c.isprintable() or c in '\n\r\t' for c in pt):
                 score = score_text_english_likelihood(pt)
-                if score > 15:
+                if score > 2.5:
                     results.append(CipherResult(pt, round(score, 1), key=word,
                         metadata={'cipher_name': 'XOR (repeating)', 'cipher_id': 'xor_cipher'}))
         except:

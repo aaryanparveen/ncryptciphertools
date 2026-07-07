@@ -27,7 +27,7 @@ def bruteforce_affine(text, max_results=10):
                     pt.append(c)
             plaintext = ''.join(pt)
             score = score_text_english_likelihood(plaintext)
-            if score > 10:
+            if score > 1.5:
                 results.append(CipherResult(plaintext, round(score, 1), key=f"a={a},b={b}",
                     metadata={'cipher_name': 'Affine', 'cipher_id': 'affine_cipher'}))
     results.sort(key=lambda x: x.confidence, reverse=True)

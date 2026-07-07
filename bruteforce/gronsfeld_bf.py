@@ -1,8 +1,21 @@
-from utils.analysis import score_text_english_likelihood, clean_text
+"""Gronsfeld key-recovery bruteforce (Vigenere with a numeric 0-9 key).
+
+Guballa bigram recovery over the 10 digit-shifts per position, quadgram polish on the
+best few key lengths, ranked by quadgram fitness (see keyed_common).
+"""
+
+from utils.analysis import clean_text, score_quadgram
 from utils.corpus import _init_bigram_log
 import utils.corpus as _corpus
-from ciphers.interface import CipherResult
+from bruteforce.keyed_common import polish_key, rank_candidates
 from itertools import product
+
+POLISH_TOP = 6
+MAX_KEYLEN = 12
+
+
+def _gron_decode(c, k):
+    return (c - k) % 26
 
 
 def _decrypt_gronsfeld(text, key):
@@ -27,16 +40,13 @@ def _guballa_solve_gronsfeld(text_indices, key_length):
 
     pair_data = {}
     for pos in range(n - 1):
-        col_a = pos % key_length
-        col_b = (pos + 1) % key_length
-        pk = (col_a, col_b)
+        pk = (pos % key_length, (pos + 1) % key_length)
         if pk not in pair_data:
             pair_data[pk] = ([], [])
         pair_data[pk][0].append(text_indices[pos])
         pair_data[pk][1].append(text_indices[pos + 1])
 
     shift_scores = [[0.0] * 10 for _ in range(key_length)]
-
     for (col_a, col_b), (chars_a, chars_b) in pair_data.items():
         best_score = -float('inf')
         best_sa = best_sb = 0
@@ -51,8 +61,7 @@ def _guballa_solve_gronsfeld(text_indices, key_length):
         shift_scores[col_a][best_sa] += m
         shift_scores[col_b][best_sb] += m
 
-    key = ''.join(str(max(range(10), key=lambda s: shift_scores[col][s])) for col in range(key_length))
-    return key
+    return [max(range(10), key=lambda s: shift_scores[col][s]) for col in range(key_length)]
 
 
 def bruteforce_gronsfeld(text, max_results=10):
@@ -60,38 +69,29 @@ def bruteforce_gronsfeld(text, max_results=10):
     if len(clean) < 6:
         return []
 
-    text_indices = [ord(c) - ord('A') for c in clean]
-    results = []
-    seen_keys = set()
+    ct = [ord(c) - ord('A') for c in clean]
+    n = len(ct)
+    max_kl = max(1, min(MAX_KEYLEN, n // 4))
+    candidates = []
 
-    for klen in range(1, min(9, len(clean) // 2)):
-        key = _guballa_solve_gronsfeld(text_indices, klen)
-        if key and key not in seen_keys:
-            seen_keys.add(key)
-            pt = _decrypt_gronsfeld(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 5:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen, 'method': 'guballa_bigram',
-                              'cipher_name': 'Gronsfeld', 'cipher_id': 'gronsfeld_cipher'}))
+    recovered = []
+    for klen in range(1, max_kl + 1):
+        ks = _guballa_solve_gronsfeld(ct, klen)
+        if not ks:
+            continue
+        pt = ''.join(chr(_gron_decode(ct[i], ks[i % klen]) + 65) for i in range(n))
+        recovered.append((score_quadgram(pt), klen, ks))
 
-    for klen in range(1, min(5, len(clean) // 2)):
+    recovered.sort(key=lambda r: r[0], reverse=True)
+    for rank, (_q, klen, ks) in enumerate(recovered):
+        if rank < POLISH_TOP:
+            ks, _ = polish_key(ct, ks, _gron_decode, range(10))
+        key = ''.join(str(k) for k in ks)
+        candidates.append((_decrypt_gronsfeld(text, key), key, klen, 'guballa_bigram'))
+
+    for klen in range(1, min(5, n // 2)):
         for digits in product(range(10), repeat=klen):
             key = ''.join(str(d) for d in digits)
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            pt = _decrypt_gronsfeld(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 15:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen, 'method': 'exhaustive',
-                              'cipher_name': 'Gronsfeld', 'cipher_id': 'gronsfeld_cipher'}))
+            candidates.append((_decrypt_gronsfeld(text, key), key, klen, 'exhaustive'))
 
-    results.sort(key=lambda x: x.confidence, reverse=True)
-    unique, seen_pt = [], set()
-    for r in results:
-        if r.plaintext[:200] not in seen_pt:
-            seen_pt.add(r.plaintext[:200])
-            unique.append(r)
-    return unique[:max_results]
+    return rank_candidates(candidates, 'Gronsfeld', 'gronsfeld_cipher', max_results=max_results)

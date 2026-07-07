@@ -1,4 +1,4 @@
-from .interface import BaseCipher, CipherResult
+from .interface import BaseCipher
 
 class AutoclaveCipher(BaseCipher):
     @property
@@ -15,15 +15,14 @@ class AutoclaveCipher(BaseCipher):
         if not key:
             return text
         result = []
-        full_key = list(key)
+        key_stream = list(key)
         ki = 0
         for c in text:
             if c.isalpha():
                 base = ord('A') if c.isupper() else ord('a')
-                if ki >= len(full_key):
-                    full_key.append(c.upper())
-                shift = ord(full_key[ki]) - ord('A')
+                shift = ord(key_stream[ki]) - ord('A') if ki < len(key_stream) else 0
                 result.append(chr((ord(c) - base + shift) % 26 + base))
+                key_stream.append(c.upper())
                 ki += 1
             else:
                 result.append(c)
@@ -34,42 +33,24 @@ class AutoclaveCipher(BaseCipher):
         if not key:
             return text
         result = []
-        full_key = list(key)
+        key_stream = list(key)
         ki = 0
         for c in text:
             if c.isalpha():
                 base = ord('A') if c.isupper() else ord('a')
-                if ki >= len(full_key):
-                    full_key.append('A')
-                shift = ord(full_key[ki]) - ord('A')
+                shift = ord(key_stream[ki]) - ord('A') if ki < len(key_stream) else 0
                 plain_char = chr((ord(c) - base - shift) % 26 + base)
                 result.append(plain_char)
-                if ki >= len(key):
-                    pass
-                full_key.append(plain_char.upper())
+                key_stream.append(plain_char.upper())
                 ki += 1
             else:
                 result.append(c)
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood, clean_text
-        from utils.dictionary import COMMON_WORDS
-        results = []
-        clean = clean_text(text)
-        if len(clean) < 5:
-            return []
-                                  
-        for word in list(COMMON_WORDS)[:200]:
-            try:
-                pt = self.decrypt(text, word.upper())
-                score = score_text_english_likelihood(pt)
-                if score > 15:
-                    results.append(CipherResult(pt, round(score, 1), key=word.upper()))
-            except:
-                continue
-        results.sort(key=lambda x: x.confidence, reverse=True)
-        return results[:10]
+        """Delegate to the specialized autokey bruteforcer (dictionary + short primers)."""
+        from bruteforce.autoclave_bf import bruteforce_autokey
+        return bruteforce_autokey(text, max_results=kwargs.get('max_results', 10))
 
     def identify(self, text):
         from utils.analysis import calculate_ioc, clean_text

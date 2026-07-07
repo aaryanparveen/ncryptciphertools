@@ -96,7 +96,7 @@ def attempt_dictionary_crack(cipher, text, max_results=10):
         try:
             pt = cipher.decrypt(text, word)
             score = score_text_english_likelihood(pt)
-            if score > 15:
+            if score > 2.5:
                 results.append(CipherResult(
                     plaintext=pt, confidence=round(score, 1), key=word,
                     metadata={'cracked_by': 'dictionary_bruteforce', 'cipher_name': cipher.name}
@@ -115,11 +115,14 @@ KEYED_CIPHERS = {
 }
 
 
-def run_universal_bruteforce(text, registry, max_overall=50):
+def run_universal_bruteforce(text, registry, max_overall=50, disabled_ciphers=None, **_):
     _load_bruteforcers()
+    disabled = set(disabled_ciphers or [])
     all_results = []
 
     for cipher_id, bf_func in SPECIALIZED_BRUTEFORCERS.items():
+        if cipher_id in disabled:
+            continue
         try:
             results = bf_func(text)
             for r in results:
@@ -133,7 +136,7 @@ def run_universal_bruteforce(text, registry, max_overall=50):
     for cid, cipher in registry.items():
         if cid in ('recursive_solver', 'hash_lookup', 'modern_cipher', 'book_cipher'):
             continue
-        if cid in ciphers_with_bf:
+        if cid in ciphers_with_bf or cid in disabled:
             continue
 
         try:
@@ -149,7 +152,7 @@ def run_universal_bruteforce(text, registry, max_overall=50):
 
     if len(text) < 200:
         for cid in KEYED_CIPHERS:
-            if cid in ciphers_with_bf:
+            if cid in ciphers_with_bf or cid in disabled:
                 continue
             cipher = registry.get(cid)
             if cipher:

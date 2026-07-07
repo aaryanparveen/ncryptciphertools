@@ -1,4 +1,4 @@
-from .interface import BaseCipher, CipherResult
+from .interface import BaseCipher
 
 class GronsfeldCipher(BaseCipher):
     @property
@@ -46,46 +46,9 @@ class GronsfeldCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood, clean_text
-        clean = clean_text(text)
-        if len(clean) < 8:
-            return []
-        results = []
-                             
-        for klen in range(1, min(9, len(clean) // 2)):
-            key = self._find_key(clean, klen)
-            pt = self.decrypt(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 10:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen}))
-        results.sort(key=lambda x: x.confidence, reverse=True)
-        return results[:10]
-
-    def _find_key(self, clean_text, key_length):
-        from utils.corpus import ENGLISH_FREQS
-        from collections import Counter
-        key = []
-        for i in range(key_length):
-            col = clean_text[i::key_length]
-            if not col:
-                key.append('0')
-                continue
-            best_shift = 0
-            best_score = float('inf')
-            counts = Counter(col)
-            total = len(col)
-            for shift in range(10):                      
-                chi2 = 0.0
-                for letter, expected_pct in ENGLISH_FREQS.items():
-                    shifted_letter = chr((ord(letter) - ord('A') + shift) % 26 + ord('A'))
-                    observed = counts.get(shifted_letter, 0) / total * 100
-                    chi2 += (observed - expected_pct) ** 2 / expected_pct
-                if chi2 < best_score:
-                    best_score = chi2
-                    best_shift = shift
-            key.append(str(best_shift))
-        return ''.join(key)
+        """Delegate to the specialized bruteforcer (Guballa bigram + quadgram polish)."""
+        from bruteforce.gronsfeld_bf import bruteforce_gronsfeld
+        return bruteforce_gronsfeld(text, max_results=kwargs.get('max_results', 10))
 
     def identify(self, text):
         from utils.analysis import calculate_ioc, clean_text

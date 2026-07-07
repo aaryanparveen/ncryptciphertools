@@ -1,9 +1,24 @@
-from utils.analysis import score_text_english_likelihood, clean_text
+"""Beaufort key-recovery bruteforce (reciprocal Vigenere variant, p = (k - c) mod 26).
+
+Shares the Vigenere approach: Guballa bigram recovery per key length, quadgram polish
+on the best few lengths, then ranking by quadgram fitness (see keyed_common).
+"""
+
+from utils.analysis import clean_text, score_quadgram
 from utils.corpus import ENGLISH_FREQS, _init_bigram_log
 import utils.corpus as _corpus
-from utils.dictionary import COMMON_WORDS
-from ciphers.interface import CipherResult
+from utils.dictionary import KEY_CANDIDATES, SHORT_KEY_WORDS
+from bruteforce.keyed_common import polish_key, rank_candidates, fast_dict_scan
 from collections import Counter
+
+SHORT_TEXT_LIMIT = 80
+
+POLISH_TOP = 6
+MAX_KEYLEN = 20
+
+
+def _beau_decode(c, k):
+    return (k - c) % 26
 
 
 def _decrypt_beaufort(text, key):
@@ -16,8 +31,7 @@ def _decrypt_beaufort(text, key):
             base = ord('A') if c.isupper() else ord('a')
             k = ord(key_upper[ki % kl]) - ord('A')
             x = ord(c.upper()) - ord('A')
-            p = (k - x) % 26
-            result.append(chr(p + base))
+            result.append(chr((k - x) % 26 + base))
             ki += 1
         else:
             result.append(c)
@@ -32,16 +46,13 @@ def _guballa_solve_beaufort(text_indices, key_length):
 
     pair_data = {}
     for pos in range(n - 1):
-        col_a = pos % key_length
-        col_b = (pos + 1) % key_length
-        pk = (col_a, col_b)
+        pk = (pos % key_length, (pos + 1) % key_length)
         if pk not in pair_data:
             pair_data[pk] = ([], [])
         pair_data[pk][0].append(text_indices[pos])
         pair_data[pk][1].append(text_indices[pos + 1])
 
     shift_scores = [[0.0] * 26 for _ in range(key_length)]
-
     for (col_a, col_b), (chars_a, chars_b) in pair_data.items():
         best_score = -float('inf')
         best_sa = best_sb = 0
@@ -58,40 +69,31 @@ def _guballa_solve_beaufort(text_indices, key_length):
         shift_scores[col_a][best_sa] += m
         shift_scores[col_b][best_sb] += m
 
-    key = []
-    for col in range(key_length):
-        best = max(range(26), key=lambda s: shift_scores[col][s])
-        key.append(chr(best + ord('A')))
-    return ''.join(key)
+    return [max(range(26), key=lambda s: shift_scores[col][s]) for col in range(key_length)]
 
 
-def _chi_squared_solve_beaufort(text_indices, key_length):
+def _chi_squared_key_beaufort(text_indices, key_length):
     columns = [[] for _ in range(key_length)]
     for i, idx in enumerate(text_indices):
         columns[i % key_length].append(idx)
-
     key = []
     for col in columns:
         if not col:
-            key.append('A')
+            key.append(0)
             continue
-        best_shift = 0
-        best_chi2 = float('inf')
+        best_shift, best_chi2 = 0, float('inf')
         total = len(col)
         counts = Counter(col)
         for k_val in range(26):
-            chi2 = 0.0
-            for li in range(26):
-                letter = chr(li + ord('A'))
-                expected = ENGLISH_FREQS.get(letter, 0.0)
-                cipher_idx = (k_val - li) % 26
-                observed = counts.get(cipher_idx, 0) / total * 100
-                chi2 += (observed - expected) ** 2 / max(expected, 0.01)
+            chi2 = sum(
+                ((counts.get((k_val - li) % 26, 0) / total * 100 - ENGLISH_FREQS.get(chr(li + 65), 0)) ** 2)
+                / max(ENGLISH_FREQS.get(chr(li + 65), 0.01), 0.01)
+                for li in range(26)
+            )
             if chi2 < best_chi2:
-                best_chi2 = chi2
-                best_shift = k_val
-        key.append(chr(best_shift + ord('A')))
-    return ''.join(key)
+                best_chi2, best_shift = chi2, k_val
+        key.append(best_shift)
+    return key
 
 
 def bruteforce_beaufort(text, max_results=10):
@@ -99,48 +101,37 @@ def bruteforce_beaufort(text, max_results=10):
     if len(clean) < 8:
         return []
 
-    text_indices = [ord(c) - ord('A') for c in clean]
-    results = []
-    seen_keys = set()
+    ct = [ord(c) - ord('A') for c in clean]
+    n = len(ct)
+    max_kl = max(1, min(MAX_KEYLEN, n // 4))
+    candidates = []
 
-    for klen in range(1, min(21, len(clean) // 2)):
-        key = _guballa_solve_beaufort(text_indices, klen)
-        if key and key not in seen_keys:
-            seen_keys.add(key)
-            pt = _decrypt_beaufort(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 5:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen, 'method': 'guballa_bigram',
-                              'cipher_name': 'Beaufort', 'cipher_id': 'beaufort_cipher'}))
+    recovered = []
+    for klen in range(1, max_kl + 1):
+        ks = _guballa_solve_beaufort(ct, klen)
+        if not ks:
+            continue
+        pt = ''.join(chr(_beau_decode(ct[i], ks[i % klen]) + 65) for i in range(n))
+        recovered.append((score_quadgram(pt), klen, ks))
 
-        key2 = _chi_squared_solve_beaufort(text_indices, klen)
-        if key2 and key2 not in seen_keys:
-            seen_keys.add(key2)
-            pt = _decrypt_beaufort(text, key2)
-            score = score_text_english_likelihood(pt)
-            if score > 5:
-                results.append(CipherResult(pt, round(score, 1), key=key2,
-                    metadata={'key_length': klen, 'method': 'chi_squared',
-                              'cipher_name': 'Beaufort', 'cipher_id': 'beaufort_cipher'}))
+    recovered.sort(key=lambda r: r[0], reverse=True)
+    for rank, (_q, klen, ks) in enumerate(recovered):
+        if rank < POLISH_TOP:
+            ks, _ = polish_key(ct, ks, _beau_decode, range(26))
+        key = ''.join(chr(k + ord('A')) for k in ks)
+        candidates.append((_decrypt_beaufort(text, key), key, klen, 'guballa_bigram'))
 
-    if len(clean) < 500:
-        for word in list(COMMON_WORDS)[:200]:
+    for klen in range(1, max_kl + 1):
+        ks = _chi_squared_key_beaufort(ct, klen)
+        key = ''.join(chr(k + ord('A')) for k in ks)
+        candidates.append((_decrypt_beaufort(text, key), key, klen, 'chi_squared'))
+
+    if n <= SHORT_TEXT_LIMIT:
+        for key in fast_dict_scan(clean, SHORT_KEY_WORDS, reciprocal=True):
+            candidates.append((_decrypt_beaufort(text, key), key, len(key), 'dictionary'))
+    elif n < 3000:
+        for word in KEY_CANDIDATES:
             key = word.upper()
-            if not key.isalpha() or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            pt = _decrypt_beaufort(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 15:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'method': 'dictionary',
-                              'cipher_name': 'Beaufort', 'cipher_id': 'beaufort_cipher'}))
+            candidates.append((_decrypt_beaufort(text, key), key, len(key), 'dictionary'))
 
-    results.sort(key=lambda x: x.confidence, reverse=True)
-    unique, seen_pt = [], set()
-    for r in results:
-        if r.plaintext[:200] not in seen_pt:
-            seen_pt.add(r.plaintext[:200])
-            unique.append(r)
-    return unique[:max_results]
+    return rank_candidates(candidates, 'Beaufort', 'beaufort_cipher', max_results=max_results)

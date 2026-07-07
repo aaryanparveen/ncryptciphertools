@@ -34,6 +34,20 @@ COMMON_WORDS = set([
     'congratulations', 'welcome', 'solution', 'challenge', 'capture', 'hack',
 ])
 
+_CURATED_ORDER = list(dict.fromkeys(
+    w for w in [
+        'the', 'key', 'secret', 'password', 'flag', 'cipher', 'crypt', 'crypto',
+        'code', 'hidden', 'answer', 'admin', 'root', 'user', 'hello', 'world',
+        'and', 'that', 'have', 'this', 'with', 'from', 'they', 'will', 'would',
+        'there', 'their', 'what', 'about', 'which', 'when', 'make', 'like', 'time',
+        'just', 'know', 'take', 'people', 'into', 'year', 'good', 'some', 'could',
+        'them', 'other', 'than', 'then', 'look', 'only', 'come', 'over', 'think',
+        'also', 'back', 'after', 'work', 'first', 'well', 'even', 'want', 'because',
+        'these', 'give', 'most', 'security', 'encrypted', 'plaintext', 'ciphertext',
+        'challenge', 'solution', 'welcome', 'python', 'cyber', 'lemon', 'white',
+    ]
+))
+
 try:
     import cipheydists
     try:
@@ -47,6 +61,27 @@ try:
             pass
 except ImportError:
     pass
+
+
+def _build_key_candidates():
+    ordered = list(_CURATED_ORDER)
+    try:
+        import cipheydists
+        ordered += [w.lower() for w in cipheydists.get_list("english1000")]
+    except Exception:
+        ordered += sorted(COMMON_WORDS)[:1000]
+    seen, out = set(), []
+    for w in ordered:
+        w = w.lower()
+        if w.isalpha() and 1 < len(w) <= 15 and w not in seen:
+            seen.add(w)
+            out.append(w)
+    return out
+
+
+KEY_CANDIDATES = _build_key_candidates()
+
+SHORT_KEY_WORDS = sorted(w for w in COMMON_WORDS if w.isalpha() and 2 <= len(w) <= 16)
 
 
 def score_dictionary_match(text: str) -> float:

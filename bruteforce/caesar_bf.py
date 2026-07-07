@@ -14,7 +14,7 @@ def bruteforce_caesar(text, max_results=10):
                 pt.append(c)
         plaintext = ''.join(pt)
         score = score_text_english_likelihood(plaintext)
-        if score > 5:
+        if score > 1.0:
             results.append(CipherResult(plaintext, round(score, 1), key=str(shift),
                 metadata={'cipher_name': 'Caesar', 'cipher_id': 'caesar_cipher'}))
     results.sort(key=lambda x: x.confidence, reverse=True)

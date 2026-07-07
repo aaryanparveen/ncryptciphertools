@@ -24,7 +24,7 @@ def bruteforce_rail_fence(text, max_rails=15, max_results=5):
     for rails in range(2, min(max_rails, len(text))):
         pt = _decrypt_rail_fence(text, rails)
         score = score_text_english_likelihood(pt)
-        if score > 10:
+        if score > 1.5:
             results.append(CipherResult(pt, round(score, 1), key=str(rails),
                 metadata={'rails': rails, 'cipher_name': 'Rail Fence',
                           'cipher_id': 'rail_fence_cipher'}))

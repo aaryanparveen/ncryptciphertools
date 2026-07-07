@@ -110,6 +110,60 @@
             <textarea id="crackInput" class="form-control" placeholder="Paste ciphertext for auto-solve..."
                 style="border:none; background:transparent; padding:1.2rem; resize:none; font-size:0.83rem; min-height:140px;"></textarea>
         </div>
+
+        {% if cipher.controls %}
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+            {% for control in cipher.controls %}
+            <div style="min-width:140px;">
+                <label class="control-label">{{ control.label }}</label>
+                {% if control.type == 'select' %}
+                <select id="crack_ctrl_{{ control.name }}" class="form-control cipher-control-crack" data-name="{{ control.name }}">
+                    {% for opt in control.options %}<option value="{{ opt }}" {% if opt==control.default %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+                </select>
+                {% else %}
+                <input type="{{ control.type }}" id="crack_ctrl_{{ control.name }}" class="form-control cipher-control-crack"
+                    placeholder="{{ control.placeholder }}" data-name="{{ control.name }}">
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if cipher.id == 'recursive_solver' %}
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:0.35rem 0.7rem;"
+                onclick="document.getElementById('crackCipherFilter').classList.toggle('hidden')">
+                DISABLE CIPHERS
+            </button>
+            <span id="crackDisabledCount" style="font-size:0.7rem; color:var(--tx-3); font-family:var(--mono);"></span>
+        </div>
+        <div id="crackCipherFilter" class="hidden editor-card"
+            style="padding:0.8rem; max-height:240px; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                <span style="font-size:0.7rem; color:var(--tx-2); text-transform:uppercase; letter-spacing:0.1em;">Uncheck ciphers to skip them</span>
+                <div>
+                    <button type="button" class="btn btn-secondary" style="font-size:0.65rem; padding:0.25rem 0.55rem;" onclick="setAllCrackCiphers(true)">ALL</button>
+                    <button type="button" class="btn btn-secondary" style="font-size:0.65rem; padding:0.25rem 0.55rem;" onclick="setAllCrackCiphers(false)">NONE</button>
+                </div>
+            </div>
+            <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.72rem; color:var(--tx-1);
+                margin-bottom:0.6rem; padding:0.45rem 0.6rem; background:rgba(255,255,255,0.04);
+                border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
+                <input type="checkbox" id="crackDisableKeyed" onchange="applyDisableKeyed('crack', this.checked)">
+                <span><strong>Disable keyed ciphers</strong> — skip Affine, Rail Fence, Caesar, Vigenère &amp; other
+                    key-searching ops that mangle already-decoded text (recommended for layered encodings)</span>
+            </label>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:0.3rem 0.6rem;">
+                {% for id, c in ciphers.items() %}{% if id != 'recursive_solver' %}
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.7rem; color:var(--tx-2);">
+                    <input type="checkbox" class="crack-cipher-toggle" value="{{ id }}" checked>
+                    <span>{{ c.name }}</span>
+                </label>
+                {% endif %}{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
             <input id="targetPlaintext" class="form-control" placeholder="Optional target plaintext..."
                 style="max-width:280px; font-size:0.72rem;">
@@ -233,17 +287,65 @@
         document.getElementById('metaOutEntropy').textContent = calcEntropy(t).toFixed(2);
     }
 
+    function gatherControls(scope) {
+        const sel = scope === 'crack' ? '.cipher-control-crack' : '.cipher-control';
+        const map = {};
+        document.querySelectorAll(sel).forEach(c => {
+            map[c.dataset.name || 'key'] = c.value;
+        });
+        const joined = Object.values(map).join(',');
+        return { map, joined };
+    }
+
+    function getCrackDisabledCiphers() {
+        return Array.from(document.querySelectorAll('.crack-cipher-toggle'))
+            .filter(c => !c.checked).map(c => c.value);
+    }
+    function setAllCrackCiphers(checked) {
+        document.querySelectorAll('.crack-cipher-toggle').forEach(c => c.checked = checked);
+        const kt = document.getElementById('crackDisableKeyed');
+        if (kt) kt.checked = false;
+        updateCrackDisabledCount();
+    }
+
+    const KEYED_CIPHER_IDS = [
+        'caesar_cipher', 'keyed_caesar', 'affine_cipher', 'bacon_cipher', 'polybius_cipher',
+        'tap_code_cipher', 'rail_fence_cipher', 'columnar_transposition', 'substitution_cipher',
+        'vigenere_cipher', 'beaufort_cipher', 'gronsfeld_cipher', 'porta_cipher', 'autoclave_cipher',
+        'playfair_cipher', 'bifid_cipher', 'four_square_cipher', 'nihilist_cipher', 'adfgvx_cipher',
+        'xor_cipher', 'hill_cipher', 'book_cipher',
+    ];
+    function applyDisableKeyed(scope, disable) {
+        const cls = scope === 'crack' ? '.crack-cipher-toggle' : '.cipher-toggle';
+        document.querySelectorAll(cls).forEach(c => {
+            if (KEYED_CIPHER_IDS.includes(c.value)) c.checked = !disable;
+        });
+        if (scope === 'crack') updateCrackDisabledCount();
+    }
+    function updateCrackDisabledCount() {
+        const el = document.getElementById('crackDisabledCount');
+        if (!el) return;
+        const n = getCrackDisabledCiphers().length;
+        el.textContent = n > 0 ? `${n} disabled` : '';
+    }
+    document.addEventListener('change', e => {
+        if (e.target && e.target.classList && e.target.classList.contains('crack-cipher-toggle')) {
+            updateCrackDisabledCount();
+        }
+    });
+
     async function process(action) {
         const text = document.getElementById('cipherInput').value;
         const output = document.getElementById('outputArea');
-        const controls = document.querySelectorAll('.cipher-control');
-        let key = Array.from(controls).map(c => c.value).join(',');
+        const { map, joined } = gatherControls();
+        const key = map.key !== undefined ? map.key : joined;
+        const crib = map.crib || '';
         if (!text) return;
         output.innerText = "Processing...";
         const btn = document.getElementById(action === 'encrypt' ? 'encryptBtn' : 'decryptBtn');
         if (btn) btn.disabled = true;
         try {
-            const r = await fetch('/api/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipher_id: CIPHER_ID, mode: action, text, key }) });
+            const r = await fetch('/api/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipher_id: CIPHER_ID, mode: action, text, key, crib }) });
             const d = await r.json();
             output.innerText = d.result || d.error || 'No output';
             updateOutputMeta();
@@ -294,10 +396,20 @@
         status.textContent = '';
         try {
             const t0 = performance.now();
+            const { map: ctrlMap } = gatherControls('crack');
+            const body = {
+                cipher_id: CIPHER_ID, text,
+                target_plaintext: targetPlaintext,
+                key: ctrlMap.key || '',
+                crib: ctrlMap.crib || ''
+            };
+            if (CIPHER_ID === 'recursive_solver') {
+                body.disabled_ciphers = getCrackDisabledCiphers();
+            }
             const r = await fetch('/api/crack', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cipher_id: CIPHER_ID, text, target_plaintext: targetPlaintext })
+                body: JSON.stringify(body)
             });
             const d = await r.json();
             const elapsed = ((performance.now() - t0) / 1000).toFixed(2);

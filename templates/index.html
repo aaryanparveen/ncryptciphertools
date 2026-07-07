@@ -31,8 +31,49 @@
 
     <div class="actions-bar" id="actionsBar">
         <input id="solveTarget" class="form-control" placeholder="Optional target plaintext..."
-            style="max-width:320px; font-size:0.74rem;">
+            style="max-width:240px; font-size:0.74rem;">
+        <input id="solveCrib" class="form-control" placeholder="Crib (e.g. flag{)"
+            style="max-width:180px; font-size:0.74rem;">
         <button onclick="solve()" class="btn btn-solve" id="solveBtn">SOLVE</button>
+    </div>
+
+    <div class="actions-bar" id="solveOptions" style="margin-top:0.6rem; gap:0.6rem; flex-wrap:wrap; align-items:center;">
+        <button type="button" class="btn btn-secondary" id="toggleCiphersBtn"
+            style="font-size:0.7rem; padding:0.35rem 0.7rem;"
+            onclick="document.getElementById('cipherFilter').classList.toggle('hidden')">
+            DISABLE CIPHERS
+        </button>
+        <span id="disabledCount" style="font-size:0.7rem; color:var(--tx-3); font-family:var(--mono);"></span>
+    </div>
+
+    <div id="cipherFilter" class="hidden editor-card"
+        style="margin-top:0.6rem; padding:0.8rem; max-height:240px; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+            <span style="font-size:0.7rem; color:var(--tx-2); text-transform:uppercase; letter-spacing:0.1em;">
+                Uncheck ciphers to skip them
+            </span>
+            <div>
+                <button type="button" class="btn btn-secondary" style="font-size:0.65rem; padding:0.25rem 0.55rem;"
+                    onclick="setAllCiphers(true)">ALL</button>
+                <button type="button" class="btn btn-secondary" style="font-size:0.65rem; padding:0.25rem 0.55rem;"
+                    onclick="setAllCiphers(false)">NONE</button>
+            </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.72rem; color:var(--tx-1);
+            margin-bottom:0.6rem; padding:0.45rem 0.6rem; background:rgba(255,255,255,0.04);
+            border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
+            <input type="checkbox" id="disableKeyed" onchange="applyDisableKeyed('solve', this.checked)">
+            <span><strong>Disable keyed ciphers</strong> — skip Affine, Rail Fence, Caesar, Vigenère &amp; other
+                key-searching ops that mangle already-decoded text (recommended for layered encodings)</span>
+        </label>
+        <div id="cipherCheckList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:0.3rem 0.6rem;">
+            {% for id, cipher in ciphers.items() %}{% if id != 'recursive_solver' %}
+            <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.7rem; color:var(--tx-2);">
+                <input type="checkbox" class="cipher-toggle" value="{{ id }}" checked>
+                <span>{{ cipher.name }}</span>
+            </label>
+            {% endif %}{% endfor %}
+        </div>
     </div>
 </div>
 
@@ -170,9 +211,49 @@
         area.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    function getDisabledCiphers() {
+        return Array.from(document.querySelectorAll('.cipher-toggle'))
+            .filter(c => !c.checked).map(c => c.value);
+    }
+
+    function setAllCiphers(checked) {
+        document.querySelectorAll('.cipher-toggle').forEach(c => c.checked = checked);
+        const kt = document.getElementById('disableKeyed');
+        if (kt) kt.checked = false;
+        updateDisabledCount();
+    }
+
+    const KEYED_CIPHER_IDS = [
+        'caesar_cipher', 'keyed_caesar', 'affine_cipher', 'bacon_cipher', 'polybius_cipher',
+        'tap_code_cipher', 'rail_fence_cipher', 'columnar_transposition', 'substitution_cipher',
+        'vigenere_cipher', 'beaufort_cipher', 'gronsfeld_cipher', 'porta_cipher', 'autoclave_cipher',
+        'playfair_cipher', 'bifid_cipher', 'four_square_cipher', 'nihilist_cipher', 'adfgvx_cipher',
+        'xor_cipher', 'hill_cipher', 'book_cipher',
+    ];
+    function applyDisableKeyed(scope, disable) {
+        document.querySelectorAll('.cipher-toggle').forEach(c => {
+            if (KEYED_CIPHER_IDS.includes(c.value)) c.checked = !disable;
+        });
+        updateDisabledCount();
+    }
+
+    function updateDisabledCount() {
+        const n = getDisabledCiphers().length;
+        const el = document.getElementById('disabledCount');
+        el.textContent = n > 0 ? `${n} disabled` : '';
+    }
+
+    document.addEventListener('change', e => {
+        if (e.target && e.target.classList && e.target.classList.contains('cipher-toggle')) {
+            updateDisabledCount();
+        }
+    });
+
     async function solve() {
         const text = idInput.value.trim();
         const targetPlaintext = document.getElementById('solveTarget').value.trim();
+        const crib = document.getElementById('solveCrib').value.trim();
+        const disabledCiphers = getDisabledCiphers();
         if (!text) { showToast('Enter ciphertext to solve', 'error'); return; }
 
         const btn = document.getElementById('solveBtn');
@@ -184,7 +265,12 @@
             const res = await fetch('/api/solve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, mode: 'recursive', target_plaintext: targetPlaintext })
+                body: JSON.stringify({
+                    text, mode: 'recursive',
+                    target_plaintext: targetPlaintext,
+                    crib,
+                    disabled_ciphers: disabledCiphers,
+                })
             });
             const data = await res.json();
             const elapsed = ((performance.now() - t0) / 1000).toFixed(2);

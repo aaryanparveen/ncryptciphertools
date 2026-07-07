@@ -1,10 +1,32 @@
-from utils.analysis import score_text_english_likelihood, clean_text
-from utils.corpus import ENGLISH_FREQS, _init_bigram_log
+"""Vigenère key-recovery bruteforce.
+
+Key recovery uses the Guballa bigram method (guballa.de/vigenere-solver): for each
+candidate key length, every adjacent key-position pair is solved by maximising the
+bigram log-fitness of the decrypted digraphs, which pins down absolute key letters.
+
+Two things make this reliable rather than fragile:
+  * candidate key lengths are ranked by **quadgram** fitness, not bigram fitness or
+    BetterMagic — bigram fitness separates the true length from overfit longer keys by
+    only hundredths of a point, whereas quadgram fitness separates them by a full point;
+  * the best few lengths are **polished** with a quadgram hill-climb that repairs the
+    stray single-column error the bigram pass sometimes leaves.
+"""
+
+from utils.analysis import clean_text, score_quadgram
+from utils.corpus import _init_bigram_log, ENGLISH_FREQS
 import utils.corpus as _corpus
-from utils.dictionary import COMMON_WORDS
-from ciphers.interface import CipherResult
+from utils.dictionary import KEY_CANDIDATES, SHORT_KEY_WORDS
+from bruteforce.keyed_common import polish_key, rank_candidates, fast_dict_scan
 from collections import Counter
-import math
+
+SHORT_TEXT_LIMIT = 80
+
+POLISH_TOP = 6
+MAX_KEYLEN = 20
+
+
+def _vig_decode(c, k):
+    return (c - k) % 26
 
 
 def _decrypt_vigenere(text, key):
@@ -28,13 +50,13 @@ def _decrypt_indices(ct_indices, key_shifts):
     return [(ct_indices[i] - key_shifts[i % kl]) % 26 for i in range(len(ct_indices))]
 
 
-def _fitness(pt_indices):
-    _init_bigram_log()
-    bl = _corpus._BIGRAM_LOG
-    return sum(bl[pt_indices[i]][pt_indices[i+1]] for i in range(len(pt_indices)-1))
-
-
 def _guballa_solve(ct_indices, key_length):
+    """Recover a key of the given length via adjacent-column bigram maximisation.
+
+    For each key position i the pair (i, i+1) is solved over all 26x26 letter pairs;
+    every position then takes its estimate from whichever of its two neighbouring pairs
+    scored higher (Guballa's tie-break).
+    """
     _init_bigram_log()
     bl = _corpus._BIGRAM_LOG
     n = len(ct_indices)
@@ -44,11 +66,7 @@ def _guballa_solve(ct_indices, key_length):
     pos_pairs = {}
     for p in range(n - 1):
         ki = p % key_length
-        ki_next = (p + 1) % key_length
-        if ki_next == (ki + 1) % key_length:
-            if ki not in pos_pairs:
-                pos_pairs[ki] = []
-            pos_pairs[ki].append((ct_indices[p], ct_indices[p + 1]))
+        pos_pairs.setdefault(ki, []).append((ct_indices[p], ct_indices[p + 1]))
 
     key = [0] * key_length
     best_pairs = {}
@@ -57,10 +75,8 @@ def _guballa_solve(ct_indices, key_length):
         pairs = pos_pairs.get(ki, [])
         if not pairs:
             continue
-
         best_score = -float('inf')
         best_sa = best_sb = 0
-
         for sa in range(26):
             for sb in range(26):
                 score = 0.0
@@ -69,7 +85,6 @@ def _guballa_solve(ct_indices, key_length):
                 if score > best_score:
                     best_score = score
                     best_sa, best_sb = sa, sb
-
         best_pairs[ki] = (best_sa, best_sb, best_score)
 
         if ki > 0:
@@ -90,6 +105,7 @@ def _guballa_solve(ct_indices, key_length):
 
 
 def _chi_squared_key(ct_indices, key_length):
+    """Per-column chi-squared key estimate — cheap corroboration for the ranker."""
     columns = [[] for _ in range(key_length)]
     for i, idx in enumerate(ct_indices):
         columns[i % key_length].append(idx)
@@ -98,8 +114,7 @@ def _chi_squared_key(ct_indices, key_length):
         if not col:
             key.append('A')
             continue
-        best_shift = 0
-        best_chi2 = float('inf')
+        best_shift, best_chi2 = 0, float('inf')
         total = len(col)
         counts = Counter(col)
         for shift in range(26):
@@ -109,8 +124,7 @@ def _chi_squared_key(ct_indices, key_length):
                 for li in range(26)
             )
             if chi2 < best_chi2:
-                best_chi2 = chi2
-                best_shift = shift
+                best_chi2, best_shift = chi2, shift
         key.append(chr(best_shift + ord('A')))
     return ''.join(key)
 
@@ -121,63 +135,38 @@ def bruteforce_vigenere(text, max_results=15):
         return []
 
     ct = [ord(c) - ord('A') for c in clean]
-    results = []
-    seen_keys = set()
+    n = len(ct)
+    max_kl = max(1, min(MAX_KEYLEN, n // 4))
 
-    guballa_candidates = []
-    max_kl = min(20, len(clean) // 3)
+    candidates = []
 
+    recovered = []
     for klen in range(1, max_kl + 1):
         key = _guballa_solve(ct, klen)
         if not key:
             continue
         ks = [ord(c) - ord('A') for c in key]
-        pt_idx = _decrypt_indices(ct, ks)
-        fit = _fitness(pt_idx) / max(1, len(pt_idx) - 1)
-        guballa_candidates.append((fit, key, klen))
+        raw_q = score_quadgram(''.join(chr(i + 65) for i in _decrypt_indices(ct, ks)))
+        recovered.append((raw_q, klen, ks))
 
-    guballa_candidates.sort(key=lambda x: x[0], reverse=True)
+    recovered.sort(key=lambda r: r[0], reverse=True)
+    for rank, (_raw_q, klen, ks) in enumerate(recovered):
+        if rank < POLISH_TOP:
+            ks, _ = polish_key(ct, ks, _vig_decode, range(26))
+        key = ''.join(chr(k + ord('A')) for k in ks)
+        candidates.append((_decrypt_vigenere(text, key), key, klen, 'guballa_bigram'))
 
-    for fit, key, klen in guballa_candidates[:10]:
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        pt = _decrypt_vigenere(text, key)
-        score = score_text_english_likelihood(pt)
-        if score > 3:
-            results.append(CipherResult(pt, round(score, 1), key=key,
-                metadata={'key_length': klen, 'method': 'guballa_exact',
-                          'fitness': round(fit, 4),
-                          'cipher_name': 'Vigenère', 'cipher_id': 'vigenere_cipher'}))
-
-    for klen in range(1, min(21, len(clean) // 2)):
+    for klen in range(1, max_kl + 1):
         key = _chi_squared_key(ct, klen)
-        if key and key not in seen_keys:
-            seen_keys.add(key)
-            pt = _decrypt_vigenere(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 8:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': klen, 'method': 'chi_squared',
-                              'cipher_name': 'Vigenère', 'cipher_id': 'vigenere_cipher'}))
+        if key:
+            candidates.append((_decrypt_vigenere(text, key), key, klen, 'chi_squared'))
 
-    if len(clean) < 500:
-        for word in list(COMMON_WORDS)[:300]:
+    if n <= SHORT_TEXT_LIMIT:
+        for key in fast_dict_scan(clean, SHORT_KEY_WORDS, reciprocal=False):
+            candidates.append((_decrypt_vigenere(text, key), key, len(key), 'dictionary'))
+    elif n < 3000:
+        for word in KEY_CANDIDATES:
             key = word.upper()
-            if not key.isalpha() or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            pt = _decrypt_vigenere(text, key)
-            score = score_text_english_likelihood(pt)
-            if score > 15:
-                results.append(CipherResult(pt, round(score, 1), key=key,
-                    metadata={'key_length': len(key), 'method': 'dictionary',
-                              'cipher_name': 'Vigenère', 'cipher_id': 'vigenere_cipher'}))
+            candidates.append((_decrypt_vigenere(text, key), key, len(key), 'dictionary'))
 
-    results.sort(key=lambda x: x.confidence, reverse=True)
-    unique, seen_pt = [], set()
-    for r in results:
-        if r.plaintext[:200] not in seen_pt:
-            seen_pt.add(r.plaintext[:200])
-            unique.append(r)
-    return unique[:max_results]
+    return rank_candidates(candidates, 'Vigenère', 'vigenere_cipher', max_results=max_results)

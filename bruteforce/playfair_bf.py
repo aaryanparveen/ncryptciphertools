@@ -58,7 +58,7 @@ def bruteforce_playfair(text, restarts=3, iterations=2500, max_results=5):
             grid = _make_grid(word.upper())
             pt = _decrypt_playfair(clean, grid)
             score = score_text_english_likelihood(pt)
-            if score > 15:
+            if score > 2.5:
                 results.append(CipherResult(pt, round(score, 1), key=word.upper(),
                     metadata={'method': 'dictionary', 'cipher_name': 'Playfair',
                               'cipher_id': 'playfair_cipher'}))
