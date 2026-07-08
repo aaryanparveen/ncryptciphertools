@@ -1,4 +1,3 @@
-"""Modern cipher wrappers: AES, Fernet."""
 from .interface import BaseCipher, CipherResult
 
 class ModernCipher(BaseCipher):

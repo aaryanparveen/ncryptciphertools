@@ -81,7 +81,6 @@ _QUAD_CONF_CEIL = -3.3
 
 
 def quadgram_fitness(text):
-    """Average log10 quadgram probability of the letters in *text* (higher = more English)."""
     return score_quadgram(text)
 
 
@@ -90,7 +89,6 @@ _QUAD_ARRAY = None
 
 
 def _get_quad_array():
-    """Dense float32 array of length 26**4 indexed by quadgram id (c0*26^3+c1*26^2+c2*26+c3)."""
     global _QUAD_ARRAY
     if _QUAD_ARRAY is not None:
         return _QUAD_ARRAY
@@ -108,7 +106,6 @@ def _get_quad_array():
 
 
 def quad_scores_for_matrix(pt_matrix):
-    """Average quadgram fitness for each row of an int (W, n) matrix of 0-25 letter indices."""
     import numpy as np
     arr = _get_quad_array()
     w, n = pt_matrix.shape
@@ -120,11 +117,6 @@ def quad_scores_for_matrix(pt_matrix):
 
 
 def english_confidence(text, floor=_QUAD_CONF_FLOOR, ceil=_QUAD_CONF_CEIL):
-    """Map quadgram fitness to a stable 0-100 confidence for ranking recovered plaintext.
-
-    ~0 for random letters, ~60-90 for fluent English. Length-robust, so it can be
-    compared across candidate key lengths without favouring longer (overfit) keys.
-    """
     q = score_quadgram(text)
     if q <= floor:
         return 0.0
@@ -240,7 +232,6 @@ def _compute_structural_bonus(text, sample_len):
 
 
 def score_text_bettermagic(text, crib=None, parent_len=0):
-    """Direct port of BetterMagic scoreText(text, crib, parentLen)."""
     if not text:
         return -1000.0
 

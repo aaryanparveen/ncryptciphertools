@@ -1,10 +1,3 @@
-"""Autokey (autoclave) key-recovery bruteforce.
-
-The keystream is primer + recovered plaintext, so the periodic column analysis used for
-Vigenere does not apply. We probe likely primers - dictionary words plus exhaustive short
-primers - and rank the decryptions by quadgram fitness (see keyed_common), which reliably
-surfaces the primer that yields fluent English.
-"""
 
 from utils.analysis import clean_text
 from utils.dictionary import KEY_CANDIDATES

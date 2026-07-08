@@ -49,11 +49,6 @@ class VigenereCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        """Guballa bigram key recovery with quadgram-polished ranking.
-
-        Delegates to the specialized bruteforcer so the Crack tab (/api/crack) and the
-        universal bruteforce engine share one strong solver.
-        """
         from bruteforce.vigenere_bf import bruteforce_vigenere
         return bruteforce_vigenere(text, max_results=kwargs.get('max_results', 15))
 

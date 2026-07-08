@@ -1,4 +1,3 @@
-"""Hash identification and rainbow table lookup."""
 from .interface import BaseCipher, CipherResult
 import hashlib, re
 

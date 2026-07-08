@@ -1,8 +1,3 @@
-"""Beaufort key-recovery bruteforce (reciprocal Vigenere variant, p = (k - c) mod 26).
-
-Shares the Vigenere approach: Guballa bigram recovery per key length, quadgram polish
-on the best few lengths, then ranking by quadgram fitness (see keyed_common).
-"""
 
 from utils.analysis import clean_text, score_quadgram
 from utils.corpus import ENGLISH_FREQS, _init_bigram_log

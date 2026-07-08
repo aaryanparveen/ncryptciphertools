@@ -159,7 +159,7 @@ async def process_cipher(data: TextInput):
             result = cipher.decrypt(text, data.key)
         return {"result": result}
     except Exception as e:
-        return JSONResponse({"error": str(e)}, 400)
+        return {"error": str(e)}
 
 
 @app.post("/api/crack")

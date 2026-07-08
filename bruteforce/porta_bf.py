@@ -1,11 +1,3 @@
-"""Porta key-recovery bruteforce (reciprocal polyalphabetic, 13 key rows).
-
-Each key letter selects a tableau row (row = keyletter // 2, so A/B share row 0, ...).
-Recovery seeds each column with its best row by chi-squared against English letter
-frequencies, then runs the shared quadgram hill-climb over the 13 rows and ranks by
-quadgram fitness (see keyed_common). Previously each column was scored with BetterMagic
-applied to a single isolated column, which its structural heuristics are not built for.
-"""
 
 from utils.analysis import clean_text, score_quadgram
 from utils.corpus import ENGLISH_FREQS
@@ -57,7 +49,6 @@ def _decrypt_porta(text, key):
 
 
 def _seed_key(ct, key_length):
-    """Per-column best row by chi-squared vs English letter frequencies."""
     expected = [ENGLISH_FREQS.get(chr(li + 65), 0.0) for li in range(26)]
     key_rows = []
     for col_idx in range(key_length):

@@ -1,16 +1,3 @@
-"""Vigenere key-recovery bruteforce.
-
-Key recovery uses the Guballa bigram method (guballa.de/vigenere-solver): for each
-candidate key length, every adjacent key-position pair is solved by maximising the
-bigram log-fitness of the decrypted digraphs, which pins down absolute key letters.
-
-Two things make this reliable rather than fragile:
-  * candidate key lengths are ranked by **quadgram** fitness, not bigram fitness or
-    BetterMagic - bigram fitness separates the true length from overfit longer keys by
-    only hundredths of a point, whereas quadgram fitness separates them by a full point;
-  * the best few lengths are **polished** with a quadgram hill-climb that repairs the
-    stray single-column error the bigram pass sometimes leaves.
-"""
 
 from utils.analysis import clean_text, score_quadgram
 from utils.corpus import _init_bigram_log, ENGLISH_FREQS
@@ -51,12 +38,6 @@ def _decrypt_indices(ct_indices, key_shifts):
 
 
 def _guballa_solve(ct_indices, key_length):
-    """Recover a key of the given length via adjacent-column bigram maximisation.
-
-    For each key position i the pair (i, i+1) is solved over all 26x26 letter pairs;
-    every position then takes its estimate from whichever of its two neighbouring pairs
-    scored higher (Guballa's tie-break).
-    """
     _init_bigram_log()
     bl = _corpus._BIGRAM_LOG
     n = len(ct_indices)
@@ -105,7 +86,6 @@ def _guballa_solve(ct_indices, key_length):
 
 
 def _chi_squared_key(ct_indices, key_length):
-    """Per-column chi-squared key estimate - cheap corroboration for the ranker."""
     columns = [[] for _ in range(key_length)]
     for i, idx in enumerate(ct_indices):
         columns[i % key_length].append(idx)

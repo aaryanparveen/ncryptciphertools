@@ -51,7 +51,6 @@ class AutoclaveCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        """Delegate to the specialized autokey bruteforcer (dictionary + short primers)."""
         from bruteforce.autoclave_bf import bruteforce_autokey
         return bruteforce_autokey(text, max_results=kwargs.get('max_results', 10))
 

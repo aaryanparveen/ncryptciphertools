@@ -28,16 +28,20 @@
     </div>
 
     <div class="actions-bar" id="actionsBar">
+        <div class="depth-field" title="Max recursive search depth (1-12)">
+            <span class="depth-label">Depth</span>
+            <input id="solveDepth" type="number" min="1" max="12" value="8" class="depth-input" aria-label="Max depth">
+            <span class="depth-steppers">
+                <button type="button" class="depth-step" tabindex="-1" aria-label="Increase depth"
+                    onclick="stepDepth(1)"><svg class="ic"><use href="#i-angle-up"></use></svg></button>
+                <button type="button" class="depth-step" tabindex="-1" aria-label="Decrease depth"
+                    onclick="stepDepth(-1)"><svg class="ic"><use href="#i-angle-down"></use></svg></button>
+            </span>
+        </div>
         <input id="solveTarget" class="form-control" placeholder="Optional target plaintext..."
             style="max-width:240px; font-size:0.74rem;">
         <input id="solveCrib" class="form-control" placeholder="Crib (e.g. flag{)"
             style="max-width:180px; font-size:0.74rem;">
-        <label
-            style="display:flex; align-items:center; gap:0.35rem; font-size:0.72rem; color:var(--tx-3); font-family:var(--mono); white-space:nowrap;"
-            title="Max recursive search depth (1-12)">Depth
-            <input id="solveDepth" type="number" min="1" max="12" value="8" class="form-control"
-                style="max-width:60px; font-size:0.74rem;">
-        </label>
         <button onclick="solve()" class="btn btn-solve" id="solveBtn">SOLVE</button>
     </div>
 
@@ -244,6 +248,13 @@
             updateDisabledCount();
         }
     });
+
+    function stepDepth(d) {
+        const el = document.getElementById('solveDepth');
+        let v = parseInt(el.value, 10);
+        if (isNaN(v)) v = 8;
+        el.value = Math.max(1, Math.min(12, v + d));
+    }
 
     async function solve() {
         const text = idInput.value.trim();

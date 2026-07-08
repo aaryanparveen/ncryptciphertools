@@ -4,7 +4,6 @@ ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ.'
 
 
 def _parse_key(key):
-    """Parse 'KEYWORD,PERIOD' into (27-char alphabet list, period int)."""
     key = str(key)
     if ',' in key:
         keyword, period_str = key.rsplit(',', 1)
@@ -32,7 +31,6 @@ def _parse_key(key):
 
 
 def _char_to_triple(alphabet, ch):
-    """Return (layer, row, col) each in 1..3 for a character."""
     idx = alphabet.index(ch)
     layer = idx // 9
     row = (idx % 9) // 3

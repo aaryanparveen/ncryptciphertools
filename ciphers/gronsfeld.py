@@ -46,7 +46,6 @@ class GronsfeldCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        """Delegate to the specialized bruteforcer (Guballa bigram + quadgram polish)."""
         from bruteforce.gronsfeld_bf import bruteforce_gronsfeld
         return bruteforce_gronsfeld(text, max_results=kwargs.get('max_results', 10))
 

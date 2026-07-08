@@ -1,10 +1,10 @@
+(function () {
+if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
 const cursor = document.createElement('div');
 cursor.id = 'custom-cursor';
 document.body.appendChild(cursor);
-
-if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    document.documentElement.classList.add('has-custom-cursor');
-}
+document.documentElement.classList.add('has-custom-cursor');
 
 const cursorDot = document.createElement('div');
 cursorDot.id = 'custom-cursor-dot';
@@ -243,3 +243,4 @@ const observer = new MutationObserver(() => {
     attachInteractivity();
 });
 observer.observe(document.body, { childList: true, subtree: true });
+})();

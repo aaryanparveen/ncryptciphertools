@@ -40,7 +40,6 @@ class XORCipher(BaseCipher):
         return result.decode('utf-8', errors='replace')
 
     def crack(self, text, **kwargs):
-        """Brute force single-byte XOR (0-255)."""
         from utils.analysis import english_confidence
         results = []
         try:

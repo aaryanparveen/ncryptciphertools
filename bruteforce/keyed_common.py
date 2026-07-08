@@ -1,17 +1,3 @@
-"""Shared machinery for polyalphabetic key-recovery bruteforcers.
-
-The Vigenere-family solvers (vigenere, beaufort, gronsfeld, porta, autoclave) all
-recover a key with the Guballa bigram method and then need the same three things:
-
-1. a **quadgram hill-climb polish** that fixes the occasional single-column error the
-   bigram pass leaves behind and rescues short/borderline ciphertexts,
-2. **ranking by quadgram fitness** (not BetterMagic), which is the only metric that
-   reliably separates the true key length from overfit longer keys, and
-3. **plaintext-dedupe that keeps the shortest key**, so key length L is preferred over
-   its multiples 2L, 3L, ... which decrypt to identical text.
-
-Keeping this in one place means every variant benefits from the same fix.
-"""
 
 from utils.analysis import score_quadgram, english_confidence, quad_scores_for_matrix
 from ciphers.interface import CipherResult
@@ -38,12 +24,6 @@ def _word_matrices(words):
 
 
 def fast_dict_scan(clean_ct, words, reciprocal=False, top_k=12):
-    """Vectorized dictionary scan: score every word key against clean ciphertext at once.
-
-    reciprocal=False -> Vigenere/Gronsfeld decrypt (c-k); True -> Beaufort (k-c).
-    Returns the top_k best-scoring words (uppercase). Used for short ciphertext where the
-    statistical key recovery is underdetermined but a real-word key is likely.
-    """
     import numpy as np
     ct = np.array([ord(c) - 65 for c in clean_ct], dtype=np.int16)
     n = ct.shape[0]
@@ -65,14 +45,6 @@ def fast_dict_scan(clean_ct, words, reciprocal=False, top_k=12):
 
 
 def polish_key(ct_indices, key_vals, decode, key_space, max_rounds=8):
-    """Hill-climb each key position to maximise full-text quadgram fitness.
-
-    ct_indices : list[int]      ciphertext as 0-25 letter indices (letters only)
-    key_vals   : list[int]      starting key (one value per position)
-    decode     : (c, k) -> p    per-letter decrypt, all 0-25 (e.g. Vigenere: (c-k)%26)
-    key_space  : iterable[int]  candidate values to try at each position
-    Returns (best_key_vals, best_quadgram_fitness).
-    """
     L = len(key_vals)
     n = len(ct_indices)
     if L == 0 or n == 0:
@@ -106,11 +78,6 @@ def polish_key(ct_indices, key_vals, decode, key_space, max_rounds=8):
 
 
 def rank_candidates(candidates, cipher_name, cipher_id, max_results=15, extra_meta=None):
-    """Rank (plaintext, key, key_length, method) candidates by quadgram fitness.
-
-    Dedupes by plaintext keeping the shortest key, assigns a 0-100 english_confidence,
-    and returns CipherResult objects sorted best-first.
-    """
     scored = []
     for pt, key, klen, method in candidates:
         scored.append((score_quadgram(pt), pt, str(key), klen, method))

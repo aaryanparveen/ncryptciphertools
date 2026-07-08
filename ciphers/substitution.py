@@ -30,7 +30,6 @@ class SubstitutionCipher(BaseCipher):
         return ''.join(mapping.get(c.upper(), c) if c.isalpha() else c for c in text)
 
     def crack(self, text, **kwargs):
-        """Hill-climbing with quadgram fitness to break simple substitution."""
         from utils.analysis import score_quadgram, clean_text
         clean = clean_text(text)
         if len(clean) < 20:

@@ -1,4 +1,3 @@
-"""Esoteric ciphers: Brainfuck, DNA, Leetspeak, Braille, Baudot"""
 from .interface import BaseCipher, CipherResult
 
                  

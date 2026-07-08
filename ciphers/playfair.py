@@ -103,7 +103,6 @@ class PlayfairCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        """Simulated annealing approach for Playfair."""
         from utils.analysis import score_quadgram, english_confidence, clean_text
         import random, string, math
         clean = clean_text(text)

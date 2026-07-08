@@ -81,7 +81,6 @@ class RecursiveSolver(BaseCipher):
 
     @staticmethod
     def _parse_key(raw):
-        """Accepts 'depth' or 'depth,crib' (comma-joined controls from UI)."""
         if raw is None:
             return 8, None
         s = str(raw)

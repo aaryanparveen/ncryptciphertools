@@ -57,7 +57,6 @@ class PortaCipher(BaseCipher):
         return self.encrypt(text, key)                       
 
     def crack(self, text, **kwargs):
-        """Delegate to the specialized bruteforcer (chi-squared seed + quadgram polish)."""
         from bruteforce.porta_bf import bruteforce_porta
         return bruteforce_porta(text, max_results=kwargs.get('max_results', 10))
 

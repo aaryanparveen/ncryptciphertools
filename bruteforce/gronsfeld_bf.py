@@ -1,8 +1,3 @@
-"""Gronsfeld key-recovery bruteforce (Vigenere with a numeric 0-9 key).
-
-Guballa bigram recovery over the 10 digit-shifts per position, quadgram polish on the
-best few key lengths, ranked by quadgram fitness (see keyed_common).
-"""
 
 from utils.analysis import clean_text, score_quadgram
 from utils.corpus import _init_bigram_log

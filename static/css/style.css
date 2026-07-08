@@ -1366,6 +1366,83 @@ select.form-control option:checked {
     flex-wrap: wrap;
 }
 
+.depth-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    padding: 0.5rem 0.4rem 0.5rem 0.7rem;
+    background: rgba(255, 255, 255, 0.025);
+    border: var(--border);
+    border-radius: var(--radius-s);
+    font-family: var(--mono);
+    transition: all var(--t-norm) var(--ease);
+}
+
+.depth-field:focus-within {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(196, 48, 80, 0.4);
+}
+
+.depth-label {
+    font-size: 0.68rem;
+    color: var(--tx-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.depth-input {
+    width: 2.2ch;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--tx-0);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 0;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.depth-input::-webkit-outer-spin-button,
+.depth-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.depth-steppers {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.depth-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 11px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--tx-3);
+    cursor: pointer;
+    line-height: 0;
+    transition: color var(--t-fast) var(--ease);
+}
+
+.depth-step:hover {
+    color: var(--red);
+}
+
+.depth-step .ic {
+    width: 9px;
+    height: 9px;
+}
+
 .shortcut-hint {
     color: var(--tx-3);
     font-size: 0.7rem;
