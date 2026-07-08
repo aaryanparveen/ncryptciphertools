@@ -21,7 +21,8 @@ class AffineCipher(BaseCipher):
     @property
     def controls(self):
         return [
-            {'name': 'key', 'type': 'text', 'label': 'a,b', 'placeholder': 'e.g. 5,8'}
+            {'name': 'a', 'type': 'number', 'label': 'a (coprime w/ 26)', 'placeholder': '5', 'default': '5'},
+            {'name': 'b', 'type': 'number', 'label': 'b (shift)', 'placeholder': '8', 'default': '8'},
         ]
     @property
     def examples(self):
@@ -57,14 +58,14 @@ class AffineCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         results = []
         for a in COPRIMES:
             for b in range(26):
                 try:
                     pt = self.decrypt(text, f"{a},{b}")
-                    score = score_text_english_likelihood(pt)
-                    if score > 10:
+                    score = english_confidence(pt)
+                    if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=f"a={a}, b={b}"))
                 except:
                     continue

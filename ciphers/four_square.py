@@ -29,7 +29,7 @@ class FourSquareCipher(BaseCipher):
     def description(self): return "Uses four 5x5 grids — two keyed and two standard — to encrypt digraphs."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Key1,Key2', 'placeholder': 'e.g. KEYWORD,SECRET'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Key1,Key2', 'placeholder': 'e.g. KEYWORD,SECRET', 'default': 'KEYWORD,SECRET'}]
 
     def _parse_keys(self, key):
         parts = str(key).split(',')
@@ -64,7 +64,7 @@ class FourSquareCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         from utils.dictionary import COMMON_WORDS
         results = []
         words = list(COMMON_WORDS)[:100]
@@ -72,7 +72,7 @@ class FourSquareCipher(BaseCipher):
             for w2 in words[:30]:
                 try:
                     pt = self.decrypt(text, f"{w1},{w2}")
-                    score = score_text_english_likelihood(pt)
+                    score = english_confidence(pt)
                     if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=f"{w1},{w2}"))
                 except:

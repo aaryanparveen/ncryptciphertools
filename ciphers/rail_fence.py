@@ -11,7 +11,7 @@ class RailFenceCipher(BaseCipher):
     def description(self): return "Writes text in a zigzag pattern across N rails, then reads off each rail."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'number', 'label': 'Rails', 'placeholder': '2-10'}]
+        return [{'name': 'key', 'type': 'number', 'label': 'Rails', 'placeholder': '2-10', 'default': '3'}]
     @property
     def examples(self):
         return [{'input': 'HELLO WORLD', 'output': 'HO LLWRDOEL', 'key': '3'}]
@@ -51,12 +51,12 @@ class RailFenceCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         results = []
         for rails in range(2, min(11, len(text))):
             pt = self.decrypt(text, str(rails))
-            score = score_text_english_likelihood(pt)
-            if score > 10:
+            score = english_confidence(pt)
+            if score > 20:
                 results.append(CipherResult(pt, round(score, 1), key=str(rails),
                     metadata={'rails': rails}))
         results.sort(key=lambda x: x.confidence, reverse=True)

@@ -19,10 +19,10 @@ class ReverseText(BaseCipher):
         return text[::-1]
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         pt = text[::-1]
-        score = score_text_english_likelihood(pt)
-        if score > 5:
+        score = english_confidence(pt)
+        if score > 20:
             return [CipherResult(pt, round(score, 1), key='Reversed')]
         return []
 

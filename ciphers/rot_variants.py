@@ -21,7 +21,6 @@ class ROT5Cipher(BaseCipher):
         return self.encrypt(text)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
         pt = self.decrypt(text)
         if pt != text:
             return [CipherResult(pt, 30.0, key='5')]
@@ -61,10 +60,10 @@ class ROT18Cipher(BaseCipher):
         return self.encrypt(text)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         pt = self.decrypt(text)
-        score = score_text_english_likelihood(pt)
-        if score > 5:
+        score = english_confidence(pt)
+        if score > 20:
             return [CipherResult(pt, round(score, 1), key='18')]
         return []
 

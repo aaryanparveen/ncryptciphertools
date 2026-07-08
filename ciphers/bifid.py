@@ -28,6 +28,9 @@ class BifidCipher(BaseCipher):
     def category(self): return "Polygrammic"
     @property
     def description(self): return "Combines Polybius square coordinates, interleaving rows and columns before converting back."
+    @property
+    def controls(self):
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEYWORD'}]
 
     def encrypt(self, text, key):
         grid = _make_grid(str(key))
@@ -60,14 +63,14 @@ class BifidCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         from utils.dictionary import COMMON_WORDS
         results = []
         for word in list(COMMON_WORDS)[:150]:
             try:
                 pt = self.decrypt(text, word.upper())
-                score = score_text_english_likelihood(pt)
-                if score > 15:
+                score = english_confidence(pt)
+                if score > 20:
                     results.append(CipherResult(pt, round(score, 1), key=word.upper()))
             except:
                 continue

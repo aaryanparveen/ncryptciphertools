@@ -31,9 +31,9 @@ class BrailleCipher(BaseCipher):
     def crack(self, text, **kwargs):
         pt = self.decrypt(text)
         if pt != text:
-            from utils.analysis import score_text_english_likelihood
-            score = score_text_english_likelihood(pt)
-            return [CipherResult(pt, round(max(score, 15), 1), key='Braille')]
+            from utils.analysis import english_confidence
+            score = english_confidence(pt)
+            return [CipherResult(pt, round(score, 1), key='Braille')]
         return []
 
     def identify(self, text):
@@ -116,9 +116,9 @@ class LeetspeakCipher(BaseCipher):
     def crack(self, text, **kwargs):
         pt = self.decrypt(text)
         if pt != text:
-            from utils.analysis import score_text_english_likelihood
-            score = score_text_english_likelihood(pt)
-            if score > 5:
+            from utils.analysis import english_confidence
+            score = english_confidence(pt)
+            if score > 20:
                 return [CipherResult(pt, round(score, 1), key='L33t')]
         return []
 

@@ -10,6 +10,9 @@ class BeaufortCipher(BaseCipher):
     @property
     def description(self): return "A reciprocal cipher similar to Vigenère but using subtraction from the key instead of addition."
     @property
+    def controls(self):
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEY'}]
+    @property
     def examples(self):
         return [{'input': 'HELLO', 'output': 'DANZQ', 'key': 'KEY'}]
 

@@ -1,7 +1,6 @@
 from .interface import BaseCipher, CipherResult
-from utils.analysis import (score_text_bettermagic, clean_text, CRIB_MATCH_SCORE,
-                            passes_output_validation, passes_branch_prefilter,
-                            SELF_INVERTING_OPS, english_confidence)
+from utils.analysis import (CRIB_MATCH_SCORE, passes_output_validation,
+                            passes_branch_prefilter, SELF_INVERTING_OPS, english_confidence)
 import heapq
 import time
 
@@ -29,6 +28,13 @@ TIER_3 = {
 
 SKIP = {'recursive_solver', 'hash_lookup', 'book_cipher', 'hill_cipher', 'modern_cipher'}
 
+RECURSIVE_KEYED = {
+    'vigenere_cipher', 'beaufort_cipher', 'gronsfeld_cipher',
+    'porta_cipher', 'autoclave_cipher',
+}
+
+TRANSPOSITION = {'rail_fence_cipher', 'columnar_transposition'}
+
 IDENTIFY_GATED = {
     'leetspeak', 'dna_cipher', 'brainfuck', 'a1z26_cipher', 'braille',
     'morse_code', 'bacon_cipher', 'tap_code_cipher', 'polybius_cipher',
@@ -51,11 +57,11 @@ class RecursiveSolver(BaseCipher):
     def category(self): return "Meta-Tools"
     @property
     def description(self):
-        return "Multi-depth recursive solver. Cracks any combination of layered ciphers using Best-First Search with Guballa bigram fitness and quadgram scoring."
+        return "Multi-depth recursive solver. Cracks layered ciphers using best-first search ranked by quadgram English fitness."
     @property
     def controls(self):
         return [
-            {'name': 'key', 'type': 'text', 'label': 'Max Depth', 'placeholder': '10'},
+            {'name': 'key', 'type': 'number', 'label': 'Max Depth', 'placeholder': '8', 'default': '8'},
             {'name': 'crib', 'type': 'text', 'label': 'Crib (known substring)', 'placeholder': 'flag{'},
         ]
 
@@ -66,18 +72,18 @@ class RecursiveSolver(BaseCipher):
     def _parse_key(raw):
         """Accepts 'depth' or 'depth,crib' (comma-joined controls from UI)."""
         if raw is None:
-            return 10, None
+            return 8, None
         s = str(raw)
         if ',' in s:
             head, _, tail = s.partition(',')
-            head = head.strip()
-            tail = tail.strip()
+            head, tail = head.strip(), tail.strip()
         else:
             head, tail = s.strip(), ''
         try:
-            depth = int(head) if head else 10
+            depth = int(head) if head else 8
         except ValueError:
-            depth = 10
+            depth = 8
+        depth = max(1, min(depth, 12))
         return depth, (tail or None)
 
     def crack(self, text, **kwargs):
@@ -94,19 +100,37 @@ class RecursiveSolver(BaseCipher):
 
     def _solve(self, text, registry, max_depth, crib=None, disabled=None):
         disabled = disabled or set()
-        MAX_ITER = 3000
-        MAX_TIME = 45.0
+        MAX_ITER = 1200
+        MAX_TIME = 10.0
         KEYED_MAX_DEPTH = 1
-        KEYED_MAX_CALLS = 16
+        KEYED_MAX_CALLS = 4
+        COLLECT_MIN = 30.0
+        PUSH_MIN = 22.0
+        TIER1_BOOST = 12.0
+        EARLY_EXIT = 72.0
+        KEYED_GATE = 55.0
         keyed_calls = 0
-        PT_THRESHOLD = 4.0
-        READABLE_THRESHOLD = 5.5
-        TOP_N = 3
+        best_conf = 0.0
 
-        input_len = len(text)
-        init_score = score_text_bettermagic(text, crib=crib)
-        if init_score >= CRIB_MATCH_SCORE:
-            return [CipherResult(text, round(init_score, 1), "Crib match in input",
+        crib_l = crib.lower() if crib else None
+
+        def score(pt):
+            if crib_l and crib_l in pt.lower():
+                return float(CRIB_MATCH_SCORE)
+            low = pt.lower()
+            if ('flag{' in low or 'ctf{' in low or '://' in low) and '}' in pt:
+                return 90.0
+            letters = sum(1 for c in pt if c.isalpha())
+            if letters < 6:
+                return 0.0
+            conf = english_confidence(pt)
+            alpha_ratio = letters / len(pt)
+            if alpha_ratio < 0.55:
+                conf *= alpha_ratio / 0.55
+            return conf
+
+        if crib_l and crib_l in text.lower():
+            return [CipherResult(text, float(CRIB_MATCH_SCORE), "Crib match in input",
                                  metadata={'path': ['Input']})]
 
         tiers = {1: [], 2: [], 3: []}
@@ -114,25 +138,26 @@ class RecursiveSolver(BaseCipher):
             if cid in SKIP or cid == self.id or cid in disabled:
                 continue
             t = _tier(cid)
+            if t == 3 and cid not in RECURSIVE_KEYED:
+                continue
             tiers[t].append((cid, c))
 
         pq = []
         cnt = 0
-        heapq.heappush(pq, (-init_score, cnt, 0, text, [], None))
+        heapq.heappush(pq, (-score(text), cnt, 0, text, [], None))
         cnt += 1
         visited = {text[:500]}
         results = []
         iters = 0
+        done = False
         t0 = time.time()
 
-        while pq and iters < MAX_ITER:
+        while pq and iters < MAX_ITER and not done:
             if time.time() - t0 > MAX_TIME:
                 break
-
             neg_s, _, depth, cur, path, last_op = heapq.heappop(pq)
             cur_score = -neg_s
             iters += 1
-
             if depth >= max_depth:
                 continue
             if len(cur) > 10000 and depth > 2:
@@ -142,13 +167,18 @@ class RecursiveSolver(BaseCipher):
                 if tier == 2 and depth >= 7:
                     continue
                 if tier == 3:
-                    if depth > KEYED_MAX_DEPTH or keyed_calls >= KEYED_MAX_CALLS:
+                    if (depth > KEYED_MAX_DEPTH or keyed_calls >= KEYED_MAX_CALLS
+                            or best_conf >= KEYED_GATE):
                         continue
                     n_alpha = sum(1 for ch in cur if ch.isalpha())
                     if len(cur) < 12 or n_alpha < 0.6 * len(cur):
                         continue
 
                 for cid, cipher in tiers[tier]:
+                    if tier >= 2 and cid == last_op:
+                        continue
+                    if cid in TRANSPOSITION and last_op in TRANSPOSITION:
+                        continue
                     if cid in SELF_INVERTING_OPS and last_op == cid:
                         continue
                     if tier == 1 and not passes_branch_prefilter(cid, cur[:5000]):
@@ -164,17 +194,15 @@ class RecursiveSolver(BaseCipher):
                         if tier == 3:
                             keyed_calls += 1
                         cands = cipher.crack(cur, registry=registry)
-                        keep = TOP_N if tier <= 2 else 1
-
+                        keep = 3 if tier == 1 else 2
                         for res in cands[:keep]:
                             pt = res.plaintext
                             if not pt or len(pt) < 2 or pt.strip() == cur.strip():
                                 continue
-                            if pt.lstrip().startswith('Error:') or pt.lstrip().startswith('Error '):
+                            if pt.lstrip().startswith('Error'):
                                 continue
                             if not passes_output_validation(pt):
                                 continue
-
                             pk = pt[:500]
                             if pk in visited:
                                 continue
@@ -184,26 +212,30 @@ class RecursiveSolver(BaseCipher):
                             if res.key and str(res.key) not in ('None', 'N/A', ''):
                                 step += f" [key={res.key}]"
                             np = list(path) + [step]
-                            ns = score_text_bettermagic(pt, crib=crib, parent_len=input_len)
+                            ns = score(pt)
 
-                            if ns >= CRIB_MATCH_SCORE or ns >= PT_THRESHOLD:
+                            if ns >= COLLECT_MIN:
                                 results.append(CipherResult(
                                     pt, round(ns, 1), " → ".join(np),
                                     metadata={'path': np, 'depth': depth + 1,
                                               'iterations': iters, 'solved': True}))
+                                if ns > best_conf:
+                                    best_conf = ns
+                                if ns >= EARLY_EXIT:
+                                    done = True
+                                    break
 
-                            push = tier == 1 or ns > -2.0 or ns > cur_score
-                            if push:
-                                pri = ns + 2.0 if tier == 1 else ns
+                            if tier == 1 or ns >= PUSH_MIN or ns > cur_score:
+                                pri = ns + TIER1_BOOST if tier == 1 else ns
                                 heapq.heappush(pq, (-pri, cnt, depth + 1, pt, np, cid))
                                 cnt += 1
                     except Exception:
                         pass
+                    if done:
+                        break
+                if done:
+                    break
 
-        for r in results:
-            if r.confidence < CRIB_MATCH_SCORE:
-                r.confidence = round(max(english_confidence(r.plaintext),
-                                         min(r.confidence, 100.0)), 1)
         results.sort(key=lambda x: (-x.confidence, len((x.metadata or {}).get('path', []))))
         unique, seen = [], set()
         for r in results:

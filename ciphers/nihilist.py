@@ -37,7 +37,7 @@ class NihilistCipher(BaseCipher):
     @property
     def controls(self):
         return [
-            {'name': 'key', 'type': 'text', 'label': 'Grid Key, Cipher Key', 'placeholder': 'e.g. ZEBRAS,SECRET'}
+            {'name': 'key', 'type': 'text', 'label': 'Grid Key, Cipher Key', 'placeholder': 'e.g. ZEBRAS,SECRET', 'default': 'ZEBRAS,SECRET'}
         ]
 
     def _parse_keys(self, key):
@@ -75,7 +75,7 @@ class NihilistCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         from utils.dictionary import COMMON_WORDS
         nums = text.strip().split()
         if not all(n.isdigit() for n in nums):
@@ -86,8 +86,8 @@ class NihilistCipher(BaseCipher):
             for ck in words[:20]:
                 try:
                     pt = self.decrypt(text, f"{gk},{ck}")
-                    score = score_text_english_likelihood(pt)
-                    if score > 15:
+                    score = english_confidence(pt)
+                    if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=f"{gk},{ck}"))
                 except:
                     continue

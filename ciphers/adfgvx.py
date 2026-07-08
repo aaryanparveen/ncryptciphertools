@@ -14,7 +14,7 @@ class ADFGVXCipher(BaseCipher):
     def description(self): return "WWI German cipher combining a 6x6 Polybius square (ADFGVX) with columnar transposition."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Grid,Transposition Key', 'placeholder': 'e.g. GRID36CHARS,KEYWORD'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Grid,Transposition Key', 'placeholder': 'e.g. GRID36CHARS,KEYWORD', 'default': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,KEYWORD'}]
 
     def _parse_keys(self, key):
         parts = str(key).split(',')

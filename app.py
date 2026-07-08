@@ -145,20 +145,7 @@ async def process_cipher(data: TextInput):
             )
             if not results:
                 return {"result": "(no solution found)"}
-            CRIB = (data.crib or '').strip()
-            CRIB_THRESHOLD = 1000.0
-            DECENT_CONF = 8.0
-            best = None
-            for r in results:
-                conf = float(r.confidence or 0)
-                if conf >= CRIB_THRESHOLD:
-                    best = r
-                    break
-            if best is None:
-                decent = [r for r in results if float(r.confidence or 0) >= DECENT_CONF]
-                pool = decent or results
-                best = min(pool, key=lambda r: (len((r.metadata or {}).get('path', [])),
-                                                 -float(r.confidence or 0)))
+            best = results[0]
             path = ' -> '.join(best.metadata.get('path', [])) if best.metadata else ''
             header = f"# {round(best.confidence, 1)}  {path}\n" if path else ''
             return {"result": header + best.plaintext}

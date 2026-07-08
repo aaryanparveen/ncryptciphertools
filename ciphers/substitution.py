@@ -13,7 +13,7 @@ class SubstitutionCipher(BaseCipher):
     def description(self): return "Monoalphabetic substitution where each letter maps to a unique other letter. Cracked via hill-climbing with quadgram fitness."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Alphabet Key', 'placeholder': '26-letter substitution alphabet'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Alphabet Key', 'placeholder': '26-letter substitution alphabet', 'default': 'QWERTYUIOPASDFGHJKLZXCVBNM'}]
 
     def encrypt(self, text, key):
         key = str(key).upper().replace(' ', '')
@@ -38,8 +38,8 @@ class SubstitutionCipher(BaseCipher):
 
         best_key, best_score = self._hill_climb(clean, restarts=3, iterations=3000)
         pt = self._apply_key(clean, best_key)
-        from utils.analysis import score_text_english_likelihood
-        confidence = score_text_english_likelihood(pt)
+        from utils.analysis import english_confidence
+        confidence = english_confidence(pt)
 
                                                 
         full_pt = self._apply_key_preserve(text, best_key)

@@ -45,11 +45,11 @@ class A1Z26Cipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         try:
             pt = self.decrypt(text)
-            score = score_text_english_likelihood(pt)
-            if score > 5:
+            score = english_confidence(pt)
+            if score > 20:
                 return [CipherResult(pt, round(score, 1), key='A1Z26')]
         except:
             pass

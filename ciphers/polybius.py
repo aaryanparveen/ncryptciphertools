@@ -13,7 +13,7 @@ class PolybiusCipher(BaseCipher):
     def description(self): return "Encodes each letter as a pair of row/column coordinates in a 5x5 grid."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Grid Key', 'placeholder': 'Optional keyword'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Grid Key', 'placeholder': 'Optional keyword', 'default': 'KEYWORD'}]
 
     def _make_grid(self, key=''):
         key = str(key).upper().replace('J', 'I').replace(' ', '')
@@ -54,13 +54,13 @@ class PolybiusCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
-                                 
+        from utils.analysis import english_confidence
+
         try:
             pt = self.decrypt(text, '')
-            score = score_text_english_likelihood(pt)
+            score = english_confidence(pt)
             results = []
-            if score > 5:
+            if score > 20:
                 results.append(CipherResult(pt, round(score, 1), key='Standard'))
             return results
         except:

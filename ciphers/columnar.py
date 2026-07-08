@@ -9,6 +9,9 @@ class ColumnarTransposition(BaseCipher):
     def category(self): return "Transposition"
     @property
     def description(self): return "Writes text into rows of fixed width, then reads columns in keyword-sorted order."
+    @property
+    def controls(self):
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'ZEBRA'}]
 
     def _get_order(self, key):
         key = str(key).upper()
@@ -63,15 +66,15 @@ class ColumnarTransposition(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         from utils.dictionary import COMMON_WORDS
         results = []
         for word in list(COMMON_WORDS)[:100]:
             if 2 <= len(word) <= 10:
                 try:
                     pt = self.decrypt(text, word)
-                    score = score_text_english_likelihood(pt)
-                    if score > 15:
+                    score = english_confidence(pt)
+                    if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=word.upper()))
                 except:
                     continue

@@ -4,8 +4,8 @@
 {% block content %}
 <div class="list-header" id="listHeader">
     <h1>Tools</h1>
-    <p>{{ ciphers|length }} cipher modules across multiple categories.</p>
-    </div>
+    <p style="color:var(--tx-1); font-weight:300;">{{ ciphers|length }} cipher modules across multiple categories.</p>
+</div>
 
 <div class="search-wrapper" id="searchWrapper">
     <input type="text" id="paramsSearch" class="form-control" placeholder="Search ciphers..." onkeyup="filterCiphers()">
@@ -25,7 +25,7 @@
 
 <div class="bento-grid" id="cipherGrid">
     {% for id, cipher in ciphers.items() %}
-    <a href="{{ url_for('cipher_page', cipher_id=id) }}" class="bento-card cipher-item cat-{{ cipher.category|lower|replace(' ', '-') }}" data-name="{{ cipher.name|lower }}" data-cat="{{ cipher.category|lower|replace(' ', '-') }}" style="text-decoration:none; opacity:0;">
+    <a href="{{ url_for('cipher_page', cipher_id=id) }}" class="bento-card cipher-item" data-name="{{ cipher.name|lower }}" data-cat="{{ cipher.category|lower|replace(' ', '-') }}" style="text-decoration:none; opacity:0;">
         <div style="flex:1">
             <h2 style="font-size:1.05rem; margin-bottom:0.2rem; color:#fff;">{{ cipher.name }}</h2>
             <p style="color:var(--tx-2); font-size:0.78rem; margin:0 0 0.5rem 0; line-height:1.5;">{{ cipher.description[:110] }}{% if cipher.description|length > 110 %}...{% endif %}</p>
@@ -89,7 +89,6 @@
         if (typeof gsap !== 'undefined') {
             gsap.from('#listHeader', { opacity:0, y:20, duration:0.5, ease:'power2.out' });
             gsap.from('#searchWrapper', { opacity:0, y:15, duration:0.4, delay:0.1, ease:'power2.out' });
-            gsap.from('.category-tab', { opacity:0, y:10, scale:0.95, duration:0.3, stagger:0.025, delay:0.15, ease:'power2.out' });
 
             const cards = document.querySelectorAll('.cipher-item');
             gsap.fromTo(cards,

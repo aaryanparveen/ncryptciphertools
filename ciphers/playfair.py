@@ -52,6 +52,9 @@ class PlayfairCipher(BaseCipher):
     @property
     def examples(self):
         return [{'input': 'HELLO', 'output': 'CFSUQ', 'key': 'MONARCHY'}]
+    @property
+    def controls(self):
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEYWORD'}]
 
     def encrypt(self, text, key):
         grid = _generate_grid(str(key))
@@ -101,7 +104,7 @@ class PlayfairCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         """Simulated annealing approach for Playfair."""
-        from utils.analysis import score_quadgram, score_text_english_likelihood, clean_text
+        from utils.analysis import score_quadgram, english_confidence, clean_text
         import random, string, math
         clean = clean_text(text)
         if len(clean) < 10:
@@ -133,7 +136,7 @@ class PlayfairCipher(BaseCipher):
                 temp *= 0.995
 
             pt = self._decrypt_with_grid(clean, grid)
-            confidence = score_text_english_likelihood(pt)
+            confidence = english_confidence(pt)
             best_results.append(CipherResult(pt, round(confidence, 1),
                 key=''.join(key), metadata={'method': 'simulated_annealing'}))
 

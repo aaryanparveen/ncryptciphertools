@@ -27,7 +27,8 @@
             </select>
             {% else %}
             <input type="{{ control.type }}" id="ctrl_{{ control.name }}" class="form-control cipher-control"
-                placeholder="{{ control.placeholder }}" data-name="{{ control.name }}">
+                placeholder="{{ control.placeholder }}" data-name="{{ control.name }}"
+                value="{{ control.default if control.default is defined else '' }}">
             {% endif %}
         </div>
         {% endfor %}
@@ -58,14 +59,6 @@
                 <div class="meta-stat"><span class="label">Entropy</span> <strong id="metaEntropy">0.00</strong></div>
                 <div class="meta-stat"><span class="label">IoC</span> <strong id="metaIoC">0.0000</strong></div>
             </div>
-            <div style="display:flex; gap:0.5rem;">
-                <button onclick="process('decrypt')" class="btn btn-primary" style="flex:1;" id="decryptBtn">DECRYPT
-                    <span style="opacity:0.4; font-size:0.6rem; margin-left:0.3rem;"><span class="kbd">Ctrl</span>+<span
-                            class="kbd">Enter</span></span></button>
-                <button onclick="process('encrypt')" class="btn btn-secondary" style="flex:1;"
-                    id="encryptBtn">ENCRYPT</button>
-            </div>
-            <button class="swap-btn" onclick="swapIO()" title="Move output to input">SWAP OUTPUT &#8594; INPUT</button>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:0.7rem;">
@@ -78,7 +71,7 @@
                 </div>
             </div>
             <div class="editor-card"
-                style="padding:1.2rem; background:var(--bg-2); overflow:auto; flex:1; min-height:180px;">
+                style="padding:1.2rem; overflow:auto; flex:1; min-height:180px;">
                 <div id="outputArea"
                     style="font-family:var(--mono); font-size:0.83rem; color:var(--tx-0); opacity:0.9; white-space:pre-wrap; word-break:break-all; line-height:1.7;">
                 </div>
@@ -90,6 +83,21 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div style="display:flex; gap:0.6rem; margin-top:0.9rem;">
+        {% if cipher.id == 'recursive_solver' %}
+        <button onclick="goToCrack()" class="btn btn-primary" style="flex:1;" id="decryptBtn">DECRYPT &#8594; CRACK</button>
+        {% else %}
+        <div class="mode-toggle" id="modeToggle" style="flex:1;">
+            <button type="button" class="mode-btn active" data-mode="decrypt"
+                onclick="setWorkMode('decrypt', this)">DECODE</button>
+            <button type="button" class="mode-btn" data-mode="encrypt"
+                onclick="setWorkMode('encrypt', this)">ENCODE</button>
+        </div>
+        {% endif %}
+        <button class="swap-btn" onclick="swapIO()" title="Move output to input"
+            style="width:auto; flex:0 0 auto; padding:0.4rem 1rem;">SWAP OUTPUT &#8594; INPUT</button>
     </div>
 
     <div class="freq-panel" style="margin-top:1.2rem;" id="freqPanel">
@@ -150,12 +158,12 @@
                 margin-bottom:0.6rem; padding:0.45rem 0.6rem; background:rgba(255,255,255,0.04);
                 border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
                 <input type="checkbox" id="crackDisableKeyed" onchange="applyDisableKeyed('crack', this.checked)">
-                <span><strong>Disable keyed ciphers</strong> — skip Affine, Rail Fence, Caesar, Vigenère &amp; other
-                    key-searching ops that mangle already-decoded text (recommended for layered encodings)</span>
+                <span><strong>Disable keyed ciphers for auto solver</strong> like Affine, Rail Fence, Polybius Square,
+                    Vigenère</span>
             </label>
-            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:0.3rem 0.6rem;">
+            <div class="cipher-checklist">
                 {% for id, c in ciphers.items() %}{% if id != 'recursive_solver' %}
-                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.7rem; color:var(--tx-2);">
+                <label title="{{ c.name }}">
                     <input type="checkbox" class="crack-cipher-toggle" value="{{ id }}" checked>
                     <span>{{ c.name }}</span>
                 </label>
@@ -264,6 +272,12 @@
         }
     }
 
+    function goToCrack() {
+        const crackBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => /crack/i.test(b.textContent));
+        if (crackBtn) switchTab('crack', crackBtn);
+        if (document.getElementById('crackInput').value.trim()) crack();
+    }
+
     function calcEntropy(text) {
         if (!text) return 0;
         const freq = {};
@@ -334,27 +348,38 @@
         }
     });
 
-    async function process(action) {
+    let workMode = 'decrypt';
+    function setWorkMode(m, btn) {
+        workMode = m;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        liveProcess();
+    }
+    function liveProcess() {
+        if (CIPHER_ID === 'recursive_solver') return;
+        const text = document.getElementById('cipherInput').value;
+        if (!text) { document.getElementById('outputArea').innerText = ''; updateOutputMeta(); return; }
+        process(workMode, true);
+    }
+
+    async function process(action, silent) {
         const text = document.getElementById('cipherInput').value;
         const output = document.getElementById('outputArea');
         const { map, joined } = gatherControls();
         const key = map.key !== undefined ? map.key : joined;
         const crib = map.crib || '';
-        if (!text) return;
-        output.innerText = "Processing...";
-        const btn = document.getElementById(action === 'encrypt' ? 'encryptBtn' : 'decryptBtn');
-        if (btn) btn.disabled = true;
+        if (!text) { output.innerText = ''; updateOutputMeta(); return; }
+        if (!silent) output.innerText = "Processing...";
         try {
             const r = await fetch('/api/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipher_id: CIPHER_ID, mode: action, text, key, crib }) });
             const d = await r.json();
             output.innerText = d.result || d.error || 'No output';
             updateOutputMeta();
-            if (typeof gsap !== 'undefined') {
+            if (!silent && typeof gsap !== 'undefined') {
                 gsap.fromTo(output, { opacity: 0, y: 5 }, { opacity: 0.9, y: 0, duration: 0.3, ease: 'power2.out' });
             }
-            showToast(action === 'encrypt' ? 'Encrypted' : 'Decrypted', 'success');
-        } catch (e) { output.innerText = 'Error: ' + e.message; showToast('Error: ' + e.message, 'error'); }
-        if (btn) btn.disabled = false;
+            if (!silent) showToast(action === 'encrypt' ? 'Encrypted' : 'Decrypted', 'success');
+        } catch (e) { output.innerText = 'Error: ' + e.message; if (!silent) showToast('Error: ' + e.message, 'error'); }
     }
 
     async function updateGrid() {
@@ -449,7 +474,6 @@
                     <div class="result-preview">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>
                     <div class="output-actions" style="margin-top:auto; padding-top:0.5rem;">
                         <button onclick="event.stopPropagation(); useResult(\`${content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">USE</button>
-                        <button onclick="event.stopPropagation(); chainResult(\`${content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">CHAIN</button>
                         <button onclick="event.stopPropagation(); copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">COPY</button>
                     </div>`;
                 card.onclick = () => useResult(content);
@@ -478,7 +502,6 @@
         }
         showToast('Result applied', 'success');
     }
-    function chainResult(text) { document.getElementById('crackInput').value = text; showToast('Result chained to input', 'info'); }
     function copyOutput() { const t = document.getElementById('outputArea').innerText; if (t) copyToClipboard(t); }
     function downloadOutput() {
         const t = document.getElementById('outputArea').innerText; if (!t) return;
@@ -495,8 +518,8 @@
     function swapIO() {
         const o = document.getElementById('outputArea').innerText; if (!o) return;
         document.getElementById('cipherInput').value = o;
-        document.getElementById('outputArea').innerText = '';
-        updateInputMeta(); updateOutputMeta(); updateFrequencyPanel();
+        updateInputMeta(); updateFrequencyPanel();
+        liveProcess();
         showToast('Swapped', 'info');
     }
 
@@ -537,13 +560,13 @@
     document.addEventListener('DOMContentLoaded', () => {
         const cipherInput = document.getElementById('cipherInput');
         document.querySelectorAll('.cipher-control').forEach(c => {
-            c.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(updateGrid, 300); });
-            c.addEventListener('change', updateGrid);
+            c.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { updateGrid(); liveProcess(); }, 300); });
+            c.addEventListener('change', () => { updateGrid(); liveProcess(); });
         });
 
         cipherInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => { updateInputMeta(); updateFrequencyPanel(); }, 150);
+            debounceTimer = setTimeout(() => { updateInputMeta(); updateFrequencyPanel(); liveProcess(); }, 200);
         });
 
         const p = new URLSearchParams(window.location.search);
@@ -555,7 +578,7 @@
             crack();
         }
 
-        updateGrid(); updateInputMeta(); updateFrequencyPanel();
+        updateGrid(); updateInputMeta(); updateFrequencyPanel(); liveProcess();
 
         if (typeof gsap !== 'undefined') {
             gsap.from('#cipherHeader', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' });
@@ -567,8 +590,8 @@
     document.addEventListener('keydown', e => {
         if (e.ctrlKey && e.key === 'Enter') {
             e.preventDefault();
-            if (e.shiftKey) process('encrypt');
-            else process('decrypt');
+            if (CIPHER_ID === 'recursive_solver') goToCrack();
+            else process(workMode);
         }
     });
 </script>

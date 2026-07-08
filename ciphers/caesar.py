@@ -11,7 +11,7 @@ class CaesarCipher(BaseCipher):
     def description(self): return "Shifts each letter by a fixed number of positions in the alphabet. One of the oldest known ciphers."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'number', 'label': 'Shift', 'placeholder': '0-25'}]
+        return [{'name': 'key', 'type': 'number', 'label': 'Shift', 'placeholder': '0-25', 'default': '3'}]
     @property
     def examples(self):
         return [{'input': 'HELLO WORLD', 'output': 'KHOOR ZRUOG', 'key': '3'}]
@@ -31,12 +31,12 @@ class CaesarCipher(BaseCipher):
         return self.encrypt(text, str(-int(key)))
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         results = []
         for shift in range(26):
             pt = self.decrypt(text, str(shift))
-            score = score_text_english_likelihood(pt)
-            if score > 5:
+            score = english_confidence(pt)
+            if score > 20:
                 results.append(CipherResult(pt, round(score, 1), key=str(shift)))
         results.sort(key=lambda x: x.confidence, reverse=True)
         return results[:10]

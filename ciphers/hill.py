@@ -11,7 +11,7 @@ class HillCipher(BaseCipher):
     def description(self): return "Encrypts blocks of letters using matrix multiplication mod 26. Key is a square matrix."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Matrix (row-major)', 'placeholder': 'e.g. 6,24,1,13,16,10,20,17,15 for 3x3'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Matrix (row-major)', 'placeholder': 'e.g. 3,3,2,5 for 2x2', 'default': '3,3,2,5'}]
 
     def _parse_matrix(self, key):
         nums = [int(x.strip()) for x in str(key).split(',')]

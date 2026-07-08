@@ -12,7 +12,7 @@
 
 <div class="input-area" id="inputArea">
     <div class="editor-card">
-        <textarea id="idInput" class="form-control" placeholder="Paste ciphertext here..." style="min-height:200px; font-size:0.85rem; border:none; background:transparent; padding:1.2rem; resize:none;"></textarea>
+        <textarea id="idInput" class="form-control" placeholder="Paste ciphertext here..." style="min-height:150px; font-size:0.85rem; border:none; background:transparent; padding:1.2rem; resize:none;"></textarea>
         <div class="input-hint">
             <span class="hint-left" id="charCount">0 characters</span>
             <div class="hint-right">
@@ -23,8 +23,6 @@
 
     <div class="live-stats" id="inputStats">
         <div class="live-stat"><span class="label">Len</span> <strong id="statLen">0</strong></div>
-        <div class="live-stat"><span class="label">Alpha</span> <strong id="statAlpha">0</strong></div>
-        <div class="live-stat"><span class="label">Entropy</span> <strong id="statEntropy">0.00</strong></div>
         <div class="live-stat"><span class="label">IoC</span> <strong id="statIoC">0.0000</strong></div>
         <div class="live-stat"><span class="label">English</span> <strong id="statEnglish">&mdash;</strong></div>
     </div>
@@ -63,12 +61,12 @@
             margin-bottom:0.6rem; padding:0.45rem 0.6rem; background:rgba(255,255,255,0.04);
             border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
             <input type="checkbox" id="disableKeyed" onchange="applyDisableKeyed('solve', this.checked)">
-            <span><strong>Disable keyed ciphers</strong> — skip Affine, Rail Fence, Caesar, Vigenère &amp; other
-                key-searching ops that mangle already-decoded text (recommended for layered encodings)</span>
+            <span><strong>Disable keyed ciphers for auto solver</strong> like Affine, Rail Fence, Polybius Square,
+                Vigenère</span>
         </label>
-        <div id="cipherCheckList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:0.3rem 0.6rem;">
+        <div id="cipherCheckList" class="cipher-checklist">
             {% for id, cipher in ciphers.items() %}{% if id != 'recursive_solver' %}
-            <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.7rem; color:var(--tx-2);">
+            <label title="{{ cipher.name }}">
                 <input type="checkbox" class="cipher-toggle" value="{{ id }}" checked>
                 <span>{{ cipher.name }}</span>
             </label>
@@ -83,21 +81,6 @@
         <span class="count" id="resultCount"></span>
     </div>
     <div class="bento-grid" id="resultsGrid" style="grid-template-columns:repeat(2,1fr);"></div>
-</div>
-
-<div style="max-width:880px; margin:2rem auto 0;">
-    <div class="section-header" id="catHeader">
-        <span>Browse by Category</span>
-    </div>
-    <div class="category-tabs" id="categoryLinks">
-        {% set categories_seen = [] %}
-        {% for id, cipher in ciphers.items() %}
-        {% if cipher.category not in categories_seen %}
-        {% if categories_seen.append(cipher.category) %}{% endif %}
-        <a href="{{ url_for('list_ciphers') }}?cat={{ cipher.category|lower|replace(' ', '-') }}" class="category-tab cat-link">{{ cipher.category }}</a>
-        {% endif %}
-        {% endfor %}
-    </div>
 </div>
 
 <div id="solveArea" class="hidden" style="margin-top:2.2rem; max-width:880px; margin-left:auto; margin-right:auto;">
@@ -122,19 +105,27 @@
         return e;
     }
 
+    const ENG_FREQ = {A:8.2,B:1.5,C:2.8,D:4.3,E:12.7,F:2.2,G:2.0,H:6.1,I:7.0,J:0.15,K:0.77,L:4.0,M:2.4,N:6.7,O:7.5,P:1.9,Q:0.095,R:6.0,S:6.3,T:9.1,U:2.8,V:0.98,W:2.4,X:0.15,Y:2.0,Z:0.074};
+    function englishScore(text) {
+        const letters = text.toUpperCase().match(/[A-Z]/g) || [];
+        if (letters.length < 4) return 0;
+        const freq = {};
+        for (const c of letters) freq[c] = (freq[c] || 0) + 1;
+        let overlap = 0;
+        for (const c in ENG_FREQ) overlap += Math.min((freq[c] || 0) / letters.length * 100, ENG_FREQ[c]);
+        return Math.round(overlap);
+    }
+
     function updateInputStats() {
         const text = idInput.value;
         const len = text.length;
-        const alpha = (text.match(/[a-zA-Z]/g) || []).length;
-        const ent = calcEntropy(text);
         const ioc = typeof FrequencyAnalysis !== 'undefined' ? FrequencyAnalysis.calculateIoC(text) : 0;
 
         document.getElementById('charCount').textContent = len + ' character' + (len !== 1 ? 's' : '');
 
         animateStat('statLen', len);
-        animateStat('statAlpha', alpha);
-        document.getElementById('statEntropy').textContent = ent.toFixed(2);
         document.getElementById('statIoC').textContent = ioc.toFixed(4);
+        document.getElementById('statEnglish').textContent = len ? englishScore(text) + '%' : '—';
     }
 
     function animateStat(id, value) {
@@ -187,10 +178,9 @@
         results.forEach((r, i) => {
             const pct = Math.round(r.score * 100);
             const bc = pct > 70 ? 'confidence-high' : pct > 40 ? 'confidence-med' : 'confidence-low';
-            const slug = r.category.toLowerCase().replace(/[\s\/]+/g, '-');
             const card = document.createElement('a');
             card.href = `/cipher/${r.id}?input=${encodeURIComponent(text)}`;
-            card.className = `bento-card result-card cat-${slug}`;
+            card.className = 'bento-card result-card';
             card.style.cssText = 'text-decoration:none; opacity:0;';
             card.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -359,11 +349,7 @@
         });
 
         if (typeof gsap !== 'undefined') {
-            gsap.from('#heroBadge', { opacity:0, y:-10, duration:0.5, ease:'power2.out' });
-            gsap.from('#heroTitle', { opacity:0, y:20, duration:0.6, delay:0.1, ease:'power2.out' });
-            gsap.from('#heroDesc', { opacity:0, y:15, duration:0.5, delay:0.2, ease:'power2.out' });
-            gsap.from('#inputArea', { opacity:0, y:30, duration:0.6, delay:0.3, ease:'power2.out' });
-            gsap.from('#catHeader', { opacity:0, x:-15, duration:0.4, delay:0.5, ease:'power2.out' });
+            gsap.from(['#hero', '#inputArea'], { opacity:0, y:12, duration:0.6, stagger:0.1, ease:'power2.out' });
         }
     });
 </script>

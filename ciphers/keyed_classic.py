@@ -12,7 +12,7 @@ class KeyedCaesarCipher(BaseCipher):
     @property
     def controls(self):
         return [
-            {'name': 'key', 'type': 'text', 'label': 'Keyword,Shift', 'placeholder': 'e.g. SECRET,3'}
+            {'name': 'key', 'type': 'text', 'label': 'Keyword,Shift', 'placeholder': 'e.g. SECRET,3', 'default': 'SECRET,3'}
         ]
 
     def _make_alphabet(self, keyword):
@@ -45,14 +45,14 @@ class KeyedCaesarCipher(BaseCipher):
         return ''.join(mapping.get(c.upper(), c) if c.isalpha() else c for c in text)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         from utils.dictionary import COMMON_WORDS
         results = []
         for word in list(COMMON_WORDS)[:100]:
             for shift in range(26):
                 try:
                     pt = self.decrypt(text, f"{word},{shift}")
-                    score = score_text_english_likelihood(pt)
+                    score = english_confidence(pt)
                     if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=f"{word},{shift}"))
                 except:

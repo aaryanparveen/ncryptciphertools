@@ -41,12 +41,12 @@ class BaconCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         try:
             pt = self.decrypt(text)
             if '?' not in pt and pt:
-                score = score_text_english_likelihood(pt)
-                return [CipherResult(pt, round(max(score, 20), 1), key='Bacon')]
+                score = english_confidence(pt)
+                return [CipherResult(pt, round(score, 1), key='Bacon')]
         except:
             pass
         return []

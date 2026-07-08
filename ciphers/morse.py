@@ -47,9 +47,9 @@ class MorseCipher(BaseCipher):
         try:
             pt = self.decrypt(text)
             if pt and '?' not in pt:
-                from utils.analysis import score_text_english_likelihood
-                score = score_text_english_likelihood(pt)
-                return [CipherResult(pt, round(max(score, 20), 1), key='Morse')]
+                from utils.analysis import english_confidence
+                score = english_confidence(pt)
+                return [CipherResult(pt, round(score, 1), key='Morse')]
         except:
             pass
         return []

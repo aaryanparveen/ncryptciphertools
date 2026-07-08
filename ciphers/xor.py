@@ -11,7 +11,7 @@ class XORCipher(BaseCipher):
     def description(self): return "XORs each byte of the input with the key. Fundamental building block of modern encryption."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Key (text or hex 0x..)', 'placeholder': 'Key or 0xFF'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Key (text or hex 0x..)', 'placeholder': 'Key or 0xFF', 'default': 'KEY'}]
 
     def _parse_key(self, key):
         key = str(key).strip()
@@ -41,7 +41,7 @@ class XORCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         """Brute force single-byte XOR (0-255)."""
-        from utils.analysis import score_text_english_likelihood
+        from utils.analysis import english_confidence
         results = []
         try:
             clean = text.strip().replace(' ', '')
@@ -53,8 +53,8 @@ class XORCipher(BaseCipher):
             try:
                 pt = bytes(b ^ key_byte for b in data).decode('ascii')
                 if all(c.isprintable() or c in '\n\r\t' for c in pt):
-                    score = score_text_english_likelihood(pt)
-                    if score > 10:
+                    score = english_confidence(pt)
+                    if score > 20:
                         results.append(CipherResult(pt, round(score, 1),
                             key=f"0x{key_byte:02X}", metadata={'key_byte': key_byte}))
             except:

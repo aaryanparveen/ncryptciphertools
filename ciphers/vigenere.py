@@ -11,7 +11,7 @@ class VigenereCipher(BaseCipher):
     def description(self): return "Polyalphabetic substitution using a keyword. Each letter is shifted by the corresponding key letter."
     @property
     def controls(self):
-        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter keyword...'}]
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter keyword...', 'default': 'key'}]
     @property
     def examples(self):
         return [{'input': 'HELLO WORLD', 'output': 'RIJVS UYVJN', 'key': 'KEY'}]

@@ -9,6 +9,9 @@ class AutoclaveCipher(BaseCipher):
     def category(self): return "Poly-Alphabetic"
     @property
     def description(self): return "A Vigenère variant where the plaintext itself extends the key after the initial keyword."
+    @property
+    def controls(self):
+        return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEY'}]
 
     def encrypt(self, text, key):
         key = str(key).upper().replace(' ', '')
