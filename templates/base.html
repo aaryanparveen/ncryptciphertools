@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="nCrypt — Open-source cryptanalysis toolkit for CTF challenges.">
+    <meta name="description" content="nCrypt - Open-source cryptanalysis toolkit for CTF challenges.">
     <title>nCrypt{% block title %}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,6 +16,7 @@
 </head>
 
 <body>
+    {% include "_icons.html" %}
     <nav class="navbar" id="navbar">
         <div class="nav-container">
             <a href="{{ url_for('index') }}" class="brand">
@@ -33,11 +34,11 @@
                 </button>
                 <div class="nav-divider"></div>
                 <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-                    Identifier
+                    <svg class="ic"><use href="#i-home"></use></svg>Identifier
                 </a>
                 <a href="{{ url_for('list_ciphers') }}"
                     class="nav-link {% if request.endpoint == 'list_ciphers' %}active{% endif %}">
-                    Tools
+                    <svg class="ic"><use href="#i-grid"></use></svg>Tools
                 </a>
                 <div class="nav-divider"></div>
                 <span class="nav-badge">{{ ciphers|length if ciphers is defined else '' }} modules</span>
@@ -89,7 +90,8 @@
             const c = document.getElementById('toastContainer');
             const t = document.createElement('div');
             t.className = 'toast toast-' + type;
-            t.innerHTML = `<span class="toast-icon">${type === 'success' ? '&#10003;' : type === 'error' ? '&#10007;' : '&#9432;'}</span><span>${msg}</span>`;
+            const toastIcon = type === 'success' ? 'i-check' : type === 'error' ? 'i-times-circle' : 'i-info';
+            t.innerHTML = `<span class="toast-icon"><svg class="ic"><use href="#${toastIcon}"></use></svg></span><span>${msg}</span>`;
             c.appendChild(t);
             gsap.fromTo(t, { opacity: 0, y: 20, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.7)' });
             setTimeout(() => {

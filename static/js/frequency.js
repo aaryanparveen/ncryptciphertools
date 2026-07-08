@@ -59,7 +59,7 @@ const FrequencyAnalysis = (() => {
     function renderIoC(targetEl, text) {
         const ioc = calculateIoC(text);
         const cls = ioc > 0.06 ? 'Monoalphabetic / English' : ioc > 0.045 ? 'Polyalphabetic' : ioc > 0.03 ? 'Near-random' : 'Random';
-        targetEl.innerHTML = `<span class="ioc-label">IoC</span><span class="ioc-value">${ioc.toFixed(4)}</span><span style="color:var(--tx-3);font-size:0.7rem;">&middot; ${cls}</span>`;
+        targetEl.innerHTML = `<span class="ioc-label">IoC</span><span class="ioc-value">${ioc.toFixed(4)}</span><span class="ioc-sep" style="color:var(--tx-3);font-size:0.7rem;">${cls}</span>`;
     }
 
     function renderBigrams(targetEl, text) {

@@ -9,7 +9,7 @@ class UUEncodeCipher(BaseCipher):
     @property
     def category(self): return "Encoding"
     @property
-    def description(self): return "Unix-to-Unix encoding — older encoding scheme for binary data over text channels."
+    def description(self): return "Unix-to-Unix encoding - older encoding scheme for binary data over text channels."
     @property
     def controls(self): return []
 

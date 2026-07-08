@@ -231,7 +231,7 @@ class RecursiveSolver(BaseCipher):
 
                             if ns >= COLLECT_MIN:
                                 results.append(CipherResult(
-                                    pt, round(ns, 1), " → ".join(np),
+                                    pt, round(ns, 1), " ->".join(np),
                                     metadata={'path': np, 'depth': depth + 1,
                                               'iterations': iters, 'solved': True}))
                                 if ns > best_conf:

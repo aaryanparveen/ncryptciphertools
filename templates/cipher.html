@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="cipher-header" id="cipherHeader">
-    <a href="{{ url_for('list_ciphers') }}" class="back-link">&larr; Tools</a>
+    <a href="{{ url_for('list_ciphers') }}" class="back-link"><svg class="ic"><use href="#i-angle-left"></use></svg>Tools</a>
     <h1>{{ cipher.name }}</h1>
     <span class="cipher-category">{{ cipher.category }}</span>
 </div>
@@ -87,7 +87,7 @@
 
     <div style="display:flex; gap:0.6rem; margin-top:0.9rem;">
         {% if cipher.id == 'recursive_solver' %}
-        <button onclick="goToCrack()" class="btn btn-primary" style="flex:1;" id="decryptBtn">DECRYPT &#8594; CRACK</button>
+        <button onclick="goToCrack()" class="btn btn-primary" style="flex:1;" id="decryptBtn">DECRYPT <svg class="ic"><use href="#i-angle-right"></use></svg> CRACK</button>
         {% else %}
         <div class="mode-toggle" id="modeToggle" style="flex:1;">
             <button type="button" class="mode-btn active" data-mode="decrypt"
@@ -97,7 +97,7 @@
         </div>
         {% endif %}
         <button class="swap-btn" onclick="swapIO()" title="Move output to input"
-            style="width:auto; flex:0 0 auto; padding:0.4rem 1rem;">SWAP OUTPUT &#8594; INPUT</button>
+            style="width:auto; flex:0 0 auto; padding:0.4rem 1rem;">SWAP OUTPUT <svg class="ic"><use href="#i-angle-right"></use></svg> INPUT</button>
     </div>
 
     <div class="freq-panel" style="margin-top:1.2rem;" id="freqPanel">
@@ -105,7 +105,7 @@
         <div id="freqChart"></div>
         <div style="display:flex; gap:1rem; margin-top:0.75rem; flex-wrap:wrap; align-items:center;">
             <div class="ioc-display" id="iocDisplay"><span class="ioc-label">IoC</span><span
-                    class="ioc-value">&mdash;</span></div>
+                    class="ioc-value">-</span></div>
             <div id="bigramDisplay" style="display:flex; flex-wrap:wrap; gap:3px;"></div>
         </div>
     </div>
@@ -159,7 +159,7 @@
                 border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
                 <input type="checkbox" id="crackDisableKeyed" onchange="applyDisableKeyed('crack', this.checked)">
                 <span><strong>Disable keyed ciphers for auto solver</strong> like Affine, Rail Fence, Polybius Square,
-                    Vigenère</span>
+                    Vigenere</span>
             </label>
             <div class="cipher-checklist">
                 {% for id, c in ciphers.items() %}{% if id != 'recursive_solver' %}
@@ -186,18 +186,18 @@
                 <h4 style="margin:0; font-size:0.78rem; color:var(--tx-1); font-weight:700;">FREQUENCY ANALYSIS</h4>
                 <button onclick="document.getElementById('crackFreqPanel').classList.add('hidden')"
                     style="background:none; border:none; color:var(--tx-3); cursor:pointer; font-size:0.85rem; padding:0.2rem 0.5rem; border-radius:4px;"
-                    title="Close">&times;</button>
+                    title="Close"><svg class="ic"><use href="#i-times"></use></svg></button>
             </div>
             <div
                 style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:0.45rem; margin-bottom:0.7rem;">
-                <div class="meta-stat"><span class="label">IoC</span> <strong id="crackIoC">&mdash;</strong></div>
-                <div class="meta-stat"><span class="label">Entropy</span> <strong id="crackEntropy">&mdash;</strong>
+                <div class="meta-stat"><span class="label">IoC</span> <strong id="crackIoC">-</strong></div>
+                <div class="meta-stat"><span class="label">Entropy</span> <strong id="crackEntropy">-</strong>
                 </div>
-                <div class="meta-stat"><span class="label">Chi2</span> <strong id="crackChi2">&mdash;</strong></div>
-                <div class="meta-stat"><span class="label">Quadgram</span> <strong id="crackQgram">&mdash;</strong>
+                <div class="meta-stat"><span class="label">Chi2</span> <strong id="crackChi2">-</strong></div>
+                <div class="meta-stat"><span class="label">Quadgram</span> <strong id="crackQgram">-</strong>
                 </div>
-                <div class="meta-stat"><span class="label">English</span> <strong id="crackEng">&mdash;</strong></div>
-                <div class="meta-stat"><span class="label">Length</span> <strong id="crackLen">&mdash;</strong></div>
+                <div class="meta-stat"><span class="label">English</span> <strong id="crackEng">-</strong></div>
+                <div class="meta-stat"><span class="label">Length</span> <strong id="crackLen">-</strong></div>
             </div>
             <div style="font-size:0.72rem; color:var(--tx-2); margin-bottom:0.55rem;" id="crackIoCVerdict"></div>
             <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
@@ -443,7 +443,7 @@
             if (btn) { btn.disabled = false; btn.innerHTML = 'AUTO-SOLVE'; }
             if (d.error) { grid.innerHTML = `<div class="alert" style="grid-column:1/-1;">Error: ${d.error}</div>`; return; }
             if (!d.results || d.results.length === 0) {
-                grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">&#8709;</div><p>No results found.</p></div>';
+                grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon"><svg class="ic"><use href="#i-search"></use></svg></div><p>No results found.</p></div>';
                 return;
             }
             status.textContent = `${d.results.length} candidates in ${elapsed}s`;
@@ -459,7 +459,7 @@
                 let pathHtml = '';
                 if (meta.path && Array.isArray(meta.path) && meta.path.length > 0) {
                     const steps = meta.path.map(s => `<span class="path-step">${s}</span>`);
-                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow">&#8594;</span>')}</div>`;
+                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow"><svg class="ic"><use href="#i-angle-right"></use></svg></span>')}</div>`;
                     keyStr = '';
                 }
                 let targetBadge = meta.target_hit ? '<span class="flag-badge">TARGET</span> ' : '';

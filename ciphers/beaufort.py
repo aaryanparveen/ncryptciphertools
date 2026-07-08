@@ -8,7 +8,7 @@ class BeaufortCipher(BaseCipher):
     @property
     def category(self): return "Poly-Alphabetic"
     @property
-    def description(self): return "A reciprocal Vigenère variant using subtraction from the key (K-P). The German (variant) mode uses P-K instead, which is not reciprocal."
+    def description(self): return "A reciprocal Vigenere variant using subtraction from the key (K-P). The German (variant) mode uses P-K instead, which is not reciprocal."
     @property
     def controls(self):
         return [

@@ -1,4 +1,4 @@
-"""Nihilist cipher bruteforce — dictionary keyword attack."""
+"""Nihilist cipher bruteforce - dictionary keyword attack."""
 from utils.analysis import score_text_english_likelihood, clean_text
 from utils.dictionary import COMMON_WORDS
 from ciphers.interface import CipherResult

@@ -1,4 +1,4 @@
-"""Four-square cipher bruteforce — dual keyword dictionary attack."""
+"""Four-square cipher bruteforce - dual keyword dictionary attack."""
 from utils.analysis import score_text_english_likelihood, clean_text
 from utils.dictionary import COMMON_WORDS
 from ciphers.interface import CipherResult

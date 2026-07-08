@@ -2,7 +2,7 @@ from .interface import BaseCipher
 
 class VigenereCipher(BaseCipher):
     @property
-    def name(self): return "Vigenère Cipher"
+    def name(self): return "Vigenere Cipher"
     @property
     def id(self): return "vigenere_cipher"
     @property

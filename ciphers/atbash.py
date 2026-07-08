@@ -8,7 +8,7 @@ class AtbashCipher(BaseCipher):
     @property
     def category(self): return "Substitution"
     @property
-    def description(self): return "Reverses the alphabet: A→Z, B→Y, C→X, etc. A monoalphabetic substitution cipher."
+    def description(self): return "Reverses the alphabet: A->Z, B->Y, C->X, etc. A monoalphabetic substitution cipher."
     @property
     def controls(self): return []
     @property

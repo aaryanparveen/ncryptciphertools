@@ -1,4 +1,4 @@
-"""Vigenère key-recovery bruteforce.
+"""Vigenere key-recovery bruteforce.
 
 Key recovery uses the Guballa bigram method (guballa.de/vigenere-solver): for each
 candidate key length, every adjacent key-position pair is solved by maximising the
@@ -6,7 +6,7 @@ bigram log-fitness of the decrypted digraphs, which pins down absolute key lette
 
 Two things make this reliable rather than fragile:
   * candidate key lengths are ranked by **quadgram** fitness, not bigram fitness or
-    BetterMagic — bigram fitness separates the true length from overfit longer keys by
+    BetterMagic - bigram fitness separates the true length from overfit longer keys by
     only hundredths of a point, whereas quadgram fitness separates them by a full point;
   * the best few lengths are **polished** with a quadgram hill-climb that repairs the
     stray single-column error the bigram pass sometimes leaves.
@@ -105,7 +105,7 @@ def _guballa_solve(ct_indices, key_length):
 
 
 def _chi_squared_key(ct_indices, key_length):
-    """Per-column chi-squared key estimate — cheap corroboration for the ranker."""
+    """Per-column chi-squared key estimate - cheap corroboration for the ranker."""
     columns = [[] for _ in range(key_length)]
     for i, idx in enumerate(ct_indices):
         columns[i % key_length].append(idx)
@@ -169,4 +169,4 @@ def bruteforce_vigenere(text, max_results=15):
             key = word.upper()
             candidates.append((_decrypt_vigenere(text, key), key, len(key), 'dictionary'))
 
-    return rank_candidates(candidates, 'Vigenère', 'vigenere_cipher', max_results=max_results)
+    return rank_candidates(candidates, 'Vigenere', 'vigenere_cipher', max_results=max_results)

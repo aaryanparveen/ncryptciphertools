@@ -8,7 +8,7 @@ class GronsfeldCipher(BaseCipher):
     @property
     def category(self): return "Poly-Alphabetic"
     @property
-    def description(self): return "A Vigenère variant that uses digits (0-9) as the key instead of letters."
+    def description(self): return "A Vigenere variant that uses digits (0-9) as the key instead of letters."
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Numeric Key', 'placeholder': 'e.g. 31415', 'default': '31415'}]

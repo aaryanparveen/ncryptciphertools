@@ -58,7 +58,7 @@ def _load_ngrams():
               f"{len(_BIGRAM_LOG_TABLE)} bigrams, {len(_TRIGRAM_LOG)} trigrams")
 
     except ImportError:
-        print("[!] cipheydists not installed — using fallback n-gram data")
+        print("[!] cipheydists not installed - using fallback n-gram data")
         _load_fallback_ngrams()
         _NGRAMS_LOADED = True
 

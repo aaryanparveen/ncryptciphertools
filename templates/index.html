@@ -24,7 +24,7 @@
     <div class="live-stats" id="inputStats">
         <div class="live-stat"><span class="label">Len</span> <strong id="statLen">0</strong></div>
         <div class="live-stat"><span class="label">IoC</span> <strong id="statIoC">0.0000</strong></div>
-        <div class="live-stat"><span class="label">English</span> <strong id="statEnglish">&mdash;</strong></div>
+        <div class="live-stat"><span class="label">English</span> <strong id="statEnglish">-</strong></div>
     </div>
 
     <div class="actions-bar" id="actionsBar">
@@ -62,7 +62,7 @@
             border:1px solid var(--border, rgba(255,255,255,0.08)); border-radius:6px; cursor:pointer;">
             <input type="checkbox" id="disableKeyed" onchange="applyDisableKeyed('solve', this.checked)">
             <span><strong>Disable keyed ciphers for auto solver</strong> like Affine, Rail Fence, Polybius Square,
-                Vigenère</span>
+                Vigenere</span>
         </label>
         <div id="cipherCheckList" class="cipher-checklist">
             {% for id, cipher in ciphers.items() %}{% if id != 'recursive_solver' %}
@@ -125,7 +125,7 @@
 
         animateStat('statLen', len);
         document.getElementById('statIoC').textContent = ioc.toFixed(4);
-        document.getElementById('statEnglish').textContent = len ? englishScore(text) + '%' : '—';
+        document.getElementById('statEnglish').textContent = len ? englishScore(text) + '%' : '-';
     }
 
     function animateStat(id, value) {
@@ -277,7 +277,7 @@
             }
 
             if (!data.results || data.results.length === 0) {
-                grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon"></div><p>No solutions found. Try a different cipher approach.</p></div>';
+                grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon"><svg class="ic"><use href="#i-search"></use></svg></div><p>No solutions found. Try a different cipher approach.</p></div>';
                 area.classList.remove('hidden');
                 btn.disabled = false; btn.textContent = 'SOLVE';
                 return;
@@ -298,7 +298,7 @@
                 let pathHtml = '';
                 if (meta.path && Array.isArray(meta.path) && meta.path.length > 0) {
                     const steps = meta.path.map(s => `<span class="path-step">${s}</span>`);
-                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow"></span>')}</div>`;
+                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow"><svg class="ic"><use href="#i-angle-right"></use></svg></span>')}</div>`;
                     keyStr = '';
                 }
 

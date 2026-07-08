@@ -25,7 +25,7 @@ class PortaCipher(BaseCipher):
     @property
     def category(self): return "Poly-Alphabetic"
     @property
-    def description(self): return "A polyalphabetic cipher using a 13-row tableau. Reciprocal — same operation encrypts and decrypts."
+    def description(self): return "A polyalphabetic cipher using a 13-row tableau. Reciprocal - same operation encrypts and decrypts."
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEY'}]

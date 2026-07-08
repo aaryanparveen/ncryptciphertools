@@ -26,7 +26,7 @@ class FourSquareCipher(BaseCipher):
     @property
     def category(self): return "Polygrammic"
     @property
-    def description(self): return "Uses four 5x5 grids — two keyed and two standard — to encrypt digraphs."
+    def description(self): return "Uses four 5x5 grids - two keyed and two standard - to encrypt digraphs."
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Key1,Key2', 'placeholder': 'e.g. KEYWORD,SECRET', 'default': 'KEYWORD,SECRET'}]
