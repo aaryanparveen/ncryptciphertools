@@ -71,13 +71,13 @@
                 <kbd class="cmdk-esc">ESC</kbd>
             </div>
             <div id="cmdkList" class="cmdk-list">
-                {% if ciphers is defined %}{% for cid, c in ciphers.items() %}{% if cid != 'recursive_solver' %}
+                {% if ciphers is defined %}{% for cid, c in ciphers.items() %}
                 <a href="/cipher/{{ cid }}" class="cmdk-item" data-name="{{ c.name|lower }}"
-                    data-search="{{ c.name|lower }} {{ c.category|lower }} {{ cid }}">
+                    data-search="{{ c.name|lower }} {{ c.category|lower }} {{ cid }}{% if cid == 'recursive_solver' %} auto solve universal recursive{% endif %}">
                     <span class="cmdk-name">{{ c.name }}</span>
                     <span class="cmdk-cat">{{ c.category }}</span>
                 </a>
-                {% endif %}{% endfor %}{% endif %}
+                {% endfor %}{% endif %}
             </div>
         </div>
     </div>

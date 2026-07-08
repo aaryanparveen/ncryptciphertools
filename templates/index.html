@@ -32,6 +32,12 @@
             style="max-width:240px; font-size:0.74rem;">
         <input id="solveCrib" class="form-control" placeholder="Crib (e.g. flag{)"
             style="max-width:180px; font-size:0.74rem;">
+        <label
+            style="display:flex; align-items:center; gap:0.35rem; font-size:0.72rem; color:var(--tx-3); font-family:var(--mono); white-space:nowrap;"
+            title="Max recursive search depth (1-12)">Depth
+            <input id="solveDepth" type="number" min="1" max="12" value="8" class="form-control"
+                style="max-width:60px; font-size:0.74rem;">
+        </label>
         <button onclick="solve()" class="btn btn-solve" id="solveBtn">SOLVE</button>
     </div>
 
@@ -243,6 +249,7 @@
         const text = idInput.value.trim();
         const targetPlaintext = document.getElementById('solveTarget').value.trim();
         const crib = document.getElementById('solveCrib').value.trim();
+        const maxDepth = document.getElementById('solveDepth').value.trim();
         const disabledCiphers = getDisabledCiphers();
         if (!text) { showToast('Enter ciphertext to solve', 'error'); return; }
 
@@ -257,6 +264,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text, mode: 'recursive',
+                    key: maxDepth,
                     target_plaintext: targetPlaintext,
                     crib,
                     disabled_ciphers: disabledCiphers,
