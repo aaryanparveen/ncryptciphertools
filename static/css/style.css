@@ -1443,6 +1443,86 @@ select.form-control option:checked {
     height: 9px;
 }
 
+.modern-config {
+    display: flex;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 0.9rem;
+}
+
+.mc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1;
+    min-width: 150px;
+}
+
+.key-row {
+    display: flex;
+    gap: 0.4rem;
+    align-items: stretch;
+}
+
+.key-row .form-control {
+    flex: 1;
+}
+
+.mc-gen {
+    flex: 0 0 auto;
+    padding: 0 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mc-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.mc-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.mc-status {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--tx-3);
+}
+
+.mc-result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1.4rem;
+    margin-top: 0.9rem;
+    padding: 0.8rem 1rem;
+    background: var(--glass-bg);
+    border: var(--border);
+    border-radius: var(--radius-s);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--tx-2);
+}
+
+.mc-result span {
+    word-break: break-all;
+}
+
+.mc-result b {
+    color: var(--tx-3);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 0.4rem;
+}
+
 .shortcut-hint {
     color: var(--tx-3);
     font-size: 0.7rem;

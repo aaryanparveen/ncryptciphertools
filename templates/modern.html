@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %} / {{ cipher.name }}{% endblock %}
+
+{% block content %}
+<div class="cipher-header" id="cipherHeader">
+    <a href="{{ url_for('list_ciphers') }}" class="back-link"><svg class="ic"><use href="#i-angle-left"></use></svg>Tools</a>
+    <h1>{{ cipher.name }}</h1>
+    <span class="cipher-category">{{ cipher.category }}</span>
+</div>
+
+<div class="tab-bar" id="tabBar" style="margin-bottom:1.3rem;">
+    <button class="tab-btn active" onclick="switchTab('work', this)">Work</button>
+    <button class="tab-btn" onclick="switchTab('info', this)">Info</button>
+</div>
+
+<div id="tabWork">
+    <div class="modern-config">
+        <div class="mc-field">
+            <label class="control-label">Algorithm</label>
+            <select id="algo" class="form-control"></select>
+        </div>
+        <div class="mc-field" id="modeField">
+            <label class="control-label">Mode</label>
+            <select id="mode" class="form-control"></select>
+        </div>
+        <div class="mc-field">
+            <label class="control-label">Data format</label>
+            <select id="dataFormat" class="form-control">
+                <option value="Base64">Base64</option>
+                <option value="Hex">Hex</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="modern-config">
+        <div class="mc-field" style="flex:2.2;">
+            <label class="control-label">Key</label>
+            <div class="key-row">
+                <input id="key" class="form-control" placeholder="passphrase or key" autocomplete="off"
+                    spellcheck="false">
+                <button type="button" class="btn btn-secondary mc-gen" onclick="genKey()" title="Random key"><svg
+                        class="ic"><use href="#i-refresh"></use></svg></button>
+            </div>
+        </div>
+        <div class="mc-field">
+            <label class="control-label">Key format</label>
+            <select id="keyFormat" class="form-control">
+                <option value="UTF-8">UTF-8 (raw)</option>
+                <option value="Hex">Hex</option>
+                <option value="Base64">Base64</option>
+                <option value="Passphrase">Passphrase (SHA-256)</option>
+            </select>
+        </div>
+        <div class="mc-field" id="ivField">
+            <label class="control-label">IV / Nonce (hex, optional)</label>
+            <div class="key-row">
+                <input id="iv" class="form-control" placeholder="auto-generated if blank" autocomplete="off"
+                    spellcheck="false">
+                <button type="button" class="btn btn-secondary mc-gen" onclick="genIv()" title="Random IV"><svg
+                        class="ic"><use href="#i-refresh"></use></svg></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cipher-layout">
+        <div style="display:flex; flex-direction:column; gap:0.7rem;">
+            <div class="output-header">
+                <span class="output-label">Input</span>
+                <div class="output-actions"><button type="button"
+                        onclick="document.getElementById('mcInput').value=''; document.getElementById('mcInput').focus();"
+                        title="Clear">CLR</button></div>
+            </div>
+            <div class="editor-card" style="padding:0; overflow:hidden; flex:1;">
+                <textarea id="mcInput" class="form-control"
+                    placeholder="Plaintext to encrypt, or ciphertext (Base64/Hex) to decrypt..."
+                    style="border:none; background:transparent; padding:1.2rem; resize:none; font-size:0.83rem; min-height:170px; height:100%;"></textarea>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:0.7rem;">
+            <div class="output-header">
+                <span class="output-label">Output</span>
+                <div class="output-actions">
+                    <button type="button" onclick="copyMcOutput()">COPY</button>
+                </div>
+            </div>
+            <div class="editor-card" style="padding:1.2rem; overflow:auto; flex:1; min-height:170px;">
+                <div id="mcOutput"
+                    style="font-family:var(--mono); font-size:0.83rem; color:var(--tx-0); white-space:pre-wrap; word-break:break-all; line-height:1.7;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:0.6rem; margin-top:0.9rem;">
+        <div class="mode-toggle" id="modeToggle" style="flex:1;">
+            <button type="button" class="mode-btn active" data-mode="encrypt"
+                onclick="setModeAndRun('encrypt', this)">ENCRYPT</button>
+            <button type="button" class="mode-btn" data-mode="decrypt"
+                onclick="setModeAndRun('decrypt', this)">DECRYPT</button>
+        </div>
+        <button class="swap-btn" onclick="swapMc()" title="Move output to input"
+            style="width:auto; flex:0 0 auto; padding:0.4rem 1rem;">SWAP OUTPUT <svg class="ic"><use
+                href="#i-angle-right"></use></svg> INPUT</button>
+    </div>
+
+    <div id="mcResult" class="mc-result hidden"></div>
+</div>
+
+<div id="tabInfo" class="hidden">
+    <div class="editor-card info-panel">
+        <h3>About {{ cipher.name }}</h3>
+        <p>{{ cipher.description }}</p>
+        {% if cipher.algorithm_info %}
+        <h3>Conventions</h3>
+        <p style="white-space:pre-line;">{{ cipher.algorithm_info }}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const SPEC = {{ spec | tojson }};
+    let mcBinary = false;
+    let workMode = 'encrypt';
+
+    function switchTab(tab, btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tabWork').classList.toggle('hidden', tab !== 'work');
+        document.getElementById('tabInfo').classList.toggle('hidden', tab !== 'info');
+        if (typeof gsap !== 'undefined') {
+            const el = tab === 'work' ? '#tabWork' : '#tabInfo';
+            gsap.fromTo(el, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+        }
+    }
+
+    function ivLenFor(alg, mode) {
+        const s = SPEC[alg];
+        if (!s) return 0;
+        if (s.stream) return s.nonce_len || 0;
+        if (mode === 'ECB') return 0;
+        if (mode === 'GCM') return 12;
+        if (mode === 'EAX') return s.block;
+        if (mode === 'CTR') return s.lib === 'cryptography' ? s.block : Math.floor(s.block / 2);
+        return s.block;
+    }
+
+    function buildSelect(id, options, selected) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = options.map(o => `<option value="${o}"${o === selected ? ' selected' : ''}>${o}</option>`).join('');
+        if (selected != null) sel.value = selected;
+        const wrap = sel.closest('.custom-select');
+        if (wrap) { wrap.parentNode.insertBefore(sel, wrap); wrap.remove(); }
+        sel.removeAttribute('data-enhanced');
+        sel.style.display = '';
+        if (typeof enhanceSelects === 'function') enhanceSelects(sel.parentNode);
+    }
+
+    function currentMode() {
+        const s = SPEC[document.getElementById('algo').value];
+        if (s && s.stream) return 'ECB';
+        const m = document.getElementById('mode');
+        return m ? m.value : 'ECB';
+    }
+
+    function refreshForAlgo() {
+        const alg = document.getElementById('algo').value;
+        const s = SPEC[alg];
+        const modeField = document.getElementById('modeField');
+        if (s.stream) {
+            modeField.style.display = 'none';
+        } else {
+            modeField.style.display = '';
+            buildSelect('mode', s.modes, s.modes[1] || s.modes[0]);
+        }
+        syncIvVisibility();
+    }
+
+    function syncIvVisibility() {
+        const alg = document.getElementById('algo').value;
+        document.getElementById('ivField').style.display = ivLenFor(alg, currentMode()) > 0 ? '' : 'none';
+    }
+
+    function randHex(n) {
+        const a = new Uint8Array(n);
+        crypto.getRandomValues(a);
+        return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function genKey() {
+        const s = SPEC[document.getElementById('algo').value];
+        const n = s.key_len || s.key_max || 16;
+        document.getElementById('key').value = randHex(n);
+        buildSelect('keyFormat', ['UTF-8', 'Hex', 'Base64', 'Passphrase'], 'Hex');
+        document.getElementById('keyFormat').value = 'Hex';
+        showToast('Random ' + (n * 8) + '-bit key generated', 'success');
+    }
+
+    function genIv() {
+        const alg = document.getElementById('algo').value;
+        const n = ivLenFor(alg, currentMode());
+        if (!n) { showToast('This mode has no IV', 'info'); return; }
+        document.getElementById('iv').value = randHex(n);
+    }
+
+    function gather(action) {
+        const alg = document.getElementById('algo').value;
+        const mode = currentMode();
+        return {
+            action,
+            algorithm: alg,
+            mode,
+            text: document.getElementById('mcInput').value,
+            key: document.getElementById('key').value,
+            key_format: document.getElementById('keyFormat').value,
+            iv: ivLenFor(alg, mode) > 0 ? document.getElementById('iv').value : '',
+            data_format: document.getElementById('dataFormat').value,
+        };
+    }
+
+    function setModeAndRun(m, btn) {
+        workMode = m;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        runModern(m);
+    }
+
+    async function runModern(action) {
+        const body = gather(action);
+        const out = document.getElementById('mcOutput');
+        const result = document.getElementById('mcResult');
+        if (!body.text.trim()) { out.textContent = ''; result.className = 'mc-result hidden'; return; }
+        if (!body.key) { showToast('Enter a key', 'error'); return; }
+        try {
+            const r = await fetch('/api/modern', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+            const d = await r.json();
+            if (d.error) {
+                out.textContent = '';
+                result.className = 'mc-result';
+                const b = document.createElement('b');
+                b.textContent = 'Error';
+                const span = document.createElement('span');
+                span.style.color = 'var(--red)';
+                span.appendChild(b);
+                span.appendChild(document.createTextNode(' ' + d.error));
+                result.replaceChildren(span);
+                showToast(d.error, 'error');
+                return;
+            }
+            out.textContent = d.result || '';
+            mcBinary = !!d.binary;
+            document.getElementById('iv').value = '';
+            const parts = [];
+            if (d.iv) parts.push(`<span><b>IV</b> ${d.iv}</span>`);
+            if (d.tag) parts.push(`<span><b>Tag</b> ${d.tag}</span>`);
+            if (d.key_hex) parts.push(`<span><b>Key (hex)</b> ${d.key_hex}</span>`);
+            if (d.hex && d.binary) parts.push(`<span><b>Hex</b> ${d.hex}</span>`);
+            result.className = parts.length ? 'mc-result' : 'mc-result hidden';
+            result.innerHTML = parts.join('');
+            showToast(action === 'encrypt' ? 'Encrypted' : 'Decrypted', 'success');
+        } catch (e) {
+            showToast('Request failed: ' + e.message, 'error');
+        }
+    }
+
+    function copyMcOutput() {
+        const t = document.getElementById('mcOutput').textContent;
+        if (t) copyToClipboard(t);
+    }
+
+    function swapMc() {
+        const t = document.getElementById('mcOutput').textContent;
+        if (!t || mcBinary) return;
+        document.getElementById('mcInput').value = t;
+        showToast('Swapped', 'info');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        buildSelect('algo', Object.keys(SPEC), 'AES-256');
+        refreshForAlgo();
+        document.getElementById('algo').addEventListener('change', () => { document.getElementById('iv').value = ''; refreshForAlgo(); });
+        document.getElementById('mode').addEventListener('change', () => { document.getElementById('iv').value = ''; syncIvVisibility(); });
+        if (typeof gsap !== 'undefined') {
+            gsap.from('#cipherHeader', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out' });
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); runModern(workMode); }
+    });
+</script>
+{% endblock %}

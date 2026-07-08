@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import pkgutil
 import importlib
@@ -68,6 +68,17 @@ class TextInput(BaseModel):
     debug: Optional[bool] = False
 
 
+class ModernInput(BaseModel):
+    action: Optional[str] = 'encrypt'
+    algorithm: Optional[str] = 'AES-256'
+    mode: Optional[str] = 'CBC'
+    text: Optional[str] = Field('', max_length=2_000_000)
+    key: Optional[str] = Field('', max_length=8192)
+    key_format: Optional[str] = 'UTF-8'
+    iv: Optional[str] = Field('', max_length=1024)
+    data_format: Optional[str] = 'Base64'
+
+
 def _apply_target_priority(results, target_plaintext):
     target = (target_plaintext or '').strip().lower()
     if not target:
@@ -107,6 +118,8 @@ async def cipher_page(request: Request, cipher_id: str):
     cipher = CIPHER_REGISTRY.get(cipher_id)
     if not cipher:
         return HTMLResponse("Not found", 404)
+    if cipher_id == 'modern_cipher':
+        return templates.TemplateResponse(request, "modern.html", _ctx(request, cipher=cipher, spec=cipher.ui_spec()))
     return templates.TemplateResponse(request, "cipher.html", _ctx(request, cipher=cipher))
 
 
@@ -351,6 +364,22 @@ async def render_grid(data: TextInput):
         return {"grid": grid}
     except Exception:
         return {"grid": None}
+
+
+@app.post("/api/modern")
+async def modern_process(data: ModernInput):
+    cipher = CIPHER_REGISTRY.get('modern_cipher')
+    if not cipher:
+        return JSONResponse({"error": "unavailable"}, 404)
+    try:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            _executor,
+            lambda: cipher.run(data.action, data.algorithm, data.mode, data.text,
+                               data.key, data.key_format, data.iv, data.data_format),
+        )
+    except Exception as e:
+        return {"error": str(e)}
 
 
 load_ciphers()

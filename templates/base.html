@@ -96,7 +96,8 @@
             const t = document.createElement('div');
             t.className = 'toast toast-' + type;
             const toastIcon = type === 'success' ? 'i-check' : type === 'error' ? 'i-times-circle' : 'i-info';
-            t.innerHTML = `<span class="toast-icon"><svg class="ic"><use href="#${toastIcon}"></use></svg></span><span>${msg}</span>`;
+            t.innerHTML = `<span class="toast-icon"><svg class="ic"><use href="#${toastIcon}"></use></svg></span><span class="toast-msg"></span>`;
+            t.querySelector('.toast-msg').textContent = msg;
             c.appendChild(t);
             gsap.fromTo(t, { opacity: 0, y: 20, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.7)' });
             setTimeout(() => {
