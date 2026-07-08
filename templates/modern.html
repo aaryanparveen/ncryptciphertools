@@ -253,9 +253,8 @@
             }
             out.textContent = d.result || '';
             mcBinary = !!d.binary;
-            document.getElementById('iv').value = '';
+            if (action === 'encrypt') document.getElementById('iv').value = d.iv || '';
             const parts = [];
-            if (d.iv) parts.push(`<span><b>IV</b> ${d.iv}</span>`);
             if (d.tag) parts.push(`<span><b>Tag</b> ${d.tag}</span>`);
             if (d.key_hex) parts.push(`<span><b>Key (hex)</b> ${d.key_hex}</span>`);
             if (d.hex && d.binary) parts.push(`<span><b>Hex</b> ${d.hex}</span>`);

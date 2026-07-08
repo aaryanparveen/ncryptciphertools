@@ -20,14 +20,28 @@ class SubstitutionCipher(BaseCipher):
         if len(key) != 26:
             return "Error: Key must be 26 unique letters"
         mapping = {chr(i + ord('A')): key[i] for i in range(26)}
-        return ''.join(mapping.get(c.upper(), c) if c.isalpha() else c for c in text)
+        out = []
+        for c in text:
+            if c.isalpha():
+                s = mapping[c.upper()]
+                out.append(s if c.isupper() else s.lower())
+            else:
+                out.append(c)
+        return ''.join(out)
 
     def decrypt(self, text, key):
         key = str(key).upper().replace(' ', '')
         if len(key) != 26:
             return "Error: Key must be 26 unique letters"
         mapping = {key[i]: chr(i + ord('A')) for i in range(26)}
-        return ''.join(mapping.get(c.upper(), c) if c.isalpha() else c for c in text)
+        out = []
+        for c in text:
+            if c.isalpha():
+                s = mapping.get(c.upper(), c.upper())
+                out.append(s if c.isupper() else s.lower())
+            else:
+                out.append(c)
+        return ''.join(out)
 
     def crack(self, text, **kwargs):
         from utils.analysis import score_quadgram, clean_text
@@ -77,9 +91,14 @@ class SubstitutionCipher(BaseCipher):
 
     def _apply_key_preserve(self, text, key):
         mapping = {key[i]: chr(i + ord('A')) for i in range(26)}
-        mapping_lower = {k.lower(): v.lower() for k, v in mapping.items()}
-        mapping.update(mapping_lower)
-        return ''.join(mapping.get(c, c) for c in text.upper())
+        out = []
+        for c in text:
+            if c.isalpha():
+                s = mapping.get(c.upper(), c.upper())
+                out.append(s if c.isupper() else s.lower())
+            else:
+                out.append(c)
+        return ''.join(out)
 
     def identify(self, text):
         from utils.analysis import calculate_ioc, clean_text

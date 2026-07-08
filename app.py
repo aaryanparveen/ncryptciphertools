@@ -15,7 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-app = FastAPI(title="nCrypt", docs_url=None, redoc_url=None)
+app = FastAPI(
+    title="nCrypt",
+    description="Cryptanalysis API: classical and modern ciphers, a recursive multi-layer auto-solver, "
+                "frequency analysis, and a symmetric crypto suite (AES, Camellia, ChaCha20 and more). "
+                "The web UI served at / calls these same endpoints. Interactive docs: /docs and /redoc.",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
@@ -58,25 +66,25 @@ def load_ciphers():
 
 
 class TextInput(BaseModel):
-    text: Optional[str] = ''
-    cipher_id: Optional[str] = None
-    mode: Optional[str] = 'decrypt'
-    key: Optional[str] = ''
-    crib: Optional[str] = ''
-    target_plaintext: Optional[str] = ''
-    disabled_ciphers: Optional[List[str]] = None
-    debug: Optional[bool] = False
+    text: Optional[str] = Field('', description="Text to process (plaintext or ciphertext)")
+    cipher_id: Optional[str] = Field(None, description="Registered cipher id, e.g. caesar_cipher, vigenere_cipher, recursive_solver")
+    mode: Optional[str] = Field('decrypt', description="encrypt/decrypt for /api/process; recursive/bruteforce for /api/solve")
+    key: Optional[str] = Field('', description="Cipher key; for recursive_solver this is the max search depth (1-12)")
+    crib: Optional[str] = Field('', description="Known plaintext substring to prioritise while solving")
+    target_plaintext: Optional[str] = Field('', description="Boost any result that contains this text")
+    disabled_ciphers: Optional[List[str]] = Field(None, description="Cipher ids to skip during the auto-solver search")
+    debug: Optional[bool] = Field(False, description="Include solver debug information in the response")
 
 
 class ModernInput(BaseModel):
-    action: Optional[str] = 'encrypt'
-    algorithm: Optional[str] = 'AES-256'
-    mode: Optional[str] = 'CBC'
-    text: Optional[str] = Field('', max_length=2_000_000)
-    key: Optional[str] = Field('', max_length=8192)
-    key_format: Optional[str] = 'UTF-8'
-    iv: Optional[str] = Field('', max_length=1024)
-    data_format: Optional[str] = 'Base64'
+    action: Optional[str] = Field('encrypt', description="encrypt or decrypt")
+    algorithm: Optional[str] = Field('AES-256', description="AES-128/192/256, Camellia-128/192/256, SM4, SEED, Blowfish, Triple DES (168/112), DES, CAST-128, IDEA, RC2, ChaCha20, ChaCha20-Poly1305, Salsa20, RC4")
+    mode: Optional[str] = Field('CBC', description="ECB, CBC, CFB, OFB, CTR; GCM and EAX are AES-only; ignored for stream ciphers")
+    text: Optional[str] = Field('', max_length=2_000_000, description="Plaintext to encrypt, or ciphertext (in data_format) to decrypt")
+    key: Optional[str] = Field('', max_length=8192, description="Key, interpreted according to key_format")
+    key_format: Optional[str] = Field('UTF-8', description="UTF-8, Hex, Base64, or Passphrase (SHA-256 derived to the key size)")
+    iv: Optional[str] = Field('', max_length=1024, description="Hex IV/nonce; auto-generated on encrypt and kept in the field, required to decrypt non-ECB modes")
+    data_format: Optional[str] = Field('Base64', description="Base64 or Hex encoding of the ciphertext")
 
 
 def _apply_target_priority(results, target_plaintext):
@@ -103,17 +111,17 @@ def _ctx(request, **extra):
             "default_disabled": DEFAULT_DISABLED, **extra}
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, tags=["Web"], summary="Cipher identifier home page")
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html", _ctx(request))
 
 
-@app.get("/ciphers", response_class=HTMLResponse)
+@app.get("/ciphers", response_class=HTMLResponse, tags=["Web"], summary="Tools / cipher catalog page")
 async def list_ciphers(request: Request):
     return templates.TemplateResponse(request, "list.html", _ctx(request))
 
 
-@app.get("/cipher/{cipher_id}", response_class=HTMLResponse)
+@app.get("/cipher/{cipher_id}", response_class=HTMLResponse, tags=["Web"], summary="Individual cipher workbench page")
 async def cipher_page(request: Request, cipher_id: str):
     cipher = CIPHER_REGISTRY.get(cipher_id)
     if not cipher:
@@ -123,7 +131,7 @@ async def cipher_page(request: Request, cipher_id: str):
     return templates.TemplateResponse(request, "cipher.html", _ctx(request, cipher=cipher))
 
 
-@app.post("/api/analyze")
+@app.post("/api/analyze", tags=["Analysis"], summary="Identify likely ciphers for a ciphertext")
 async def analyze(data: TextInput):
     text = data.text or ''
     if not text.strip():
@@ -140,7 +148,7 @@ async def analyze(data: TextInput):
     return {"results": results[:20]}
 
 
-@app.post("/api/process")
+@app.post("/api/process", tags=["Ciphers"], summary="Encrypt/decrypt with one cipher, or run the recursive solver")
 async def process_cipher(data: TextInput):
     cipher = CIPHER_REGISTRY.get(data.cipher_id)
     if not cipher:
@@ -175,7 +183,7 @@ async def process_cipher(data: TextInput):
         return {"error": str(e)}
 
 
-@app.post("/api/crack")
+@app.post("/api/crack", tags=["Solve"], summary="Crack one specific cipher (supports crib and target plaintext)")
 async def crack_cipher(data: TextInput):
     cipher = CIPHER_REGISTRY.get(data.cipher_id)
     if not cipher:
@@ -204,7 +212,7 @@ async def crack_cipher(data: TextInput):
         return JSONResponse({"error": str(e)}, 400)
 
 
-@app.post("/api/frequency")
+@app.post("/api/frequency", tags=["Analysis"], summary="Frequency analysis: IoC, entropy, chi-squared, quadgram fitness, n-grams")
 async def frequency_analysis(data: TextInput):
     from utils.analysis import (calculate_frequencies, calculate_ioc, entropy,
                                 chi_squared_score, score_quadgram,
@@ -238,7 +246,7 @@ async def frequency_analysis(data: TextInput):
     }
 
 
-@app.post("/api/bruteforce")
+@app.post("/api/bruteforce", tags=["Solve"], summary="Universal bruteforce across all enabled ciphers")
 async def universal_bruteforce(data: TextInput):
     from bruteforce.engine import run_universal_bruteforce
     text = data.text or ''
@@ -256,7 +264,7 @@ async def universal_bruteforce(data: TextInput):
     return {"results": [r.to_dict() for r in results]}
 
 
-@app.post("/api/solve")
+@app.post("/api/solve", tags=["Solve"], summary="Auto-solve ciphertext; mode=recursive|bruteforce, key = max depth (1-12) for recursive")
 async def solve(data: TextInput):
     text = data.text or ''
     mode = data.mode or 'recursive'
@@ -302,7 +310,7 @@ async def solve(data: TextInput):
     return {"results": []}
 
 
-@app.post("/api/auto_process")
+@app.post("/api/auto_process", tags=["Analysis"], summary="One-shot: stats + cipher matches + quick crack results")
 async def auto_process(data: TextInput):
     from utils.analysis import (calculate_ioc, entropy, score_text_english_likelihood, clean_text)
     text = data.text or ''
@@ -354,7 +362,7 @@ async def auto_process(data: TextInput):
     return {"stats": stats, "matches": matches[:15], "quick_results": quick_results[:10]}
 
 
-@app.post("/api/render_grid")
+@app.post("/api/render_grid", tags=["Ciphers"], summary="Render a cipher's key grid (Polybius, Playfair, ADFGX, ...)")
 async def render_grid(data: TextInput):
     cipher = CIPHER_REGISTRY.get(data.cipher_id)
     if not cipher:
@@ -366,7 +374,7 @@ async def render_grid(data: TextInput):
         return {"grid": None}
 
 
-@app.post("/api/modern")
+@app.post("/api/modern", tags=["Modern Crypto"], summary="Symmetric encrypt/decrypt across AES, Camellia, SM4, ChaCha20 and more (ECB/CBC/CFB/OFB/CTR/GCM/EAX)")
 async def modern_process(data: ModernInput):
     cipher = CIPHER_REGISTRY.get('modern_cipher')
     if not cipher:

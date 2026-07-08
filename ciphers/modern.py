@@ -176,56 +176,39 @@ def _encrypt(algorithm, mode, kb, data, iv_bytes, fmt):
             ct = F.new(kb, M, nonce=iv).encrypt(data)
         else:
             ct, tag = F.new(kb, M, nonce=iv).encrypt_and_digest(data)
-    blob = iv + tag + ct
+    blob = tag + ct
     return {'result': _encode(blob, fmt), 'iv': iv.hex(), 'tag': tag.hex(), 'key_hex': kb.hex()}
 
 
 def _decrypt(algorithm, mode, kb, blob, iv_bytes, fmt):
     spec = ALGORITHMS[algorithm]
-    ivlen = _iv_len(algorithm, mode)
     taglen = _tag_len(algorithm, mode)
+    iv = iv_bytes if iv_bytes is not None else b''
     if spec.get('lib') == 'cryptography':
-        if mode == 'ECB':
-            iv, ct = b'', blob
-        elif iv_bytes is not None:
-            iv, ct = iv_bytes, blob
-        else:
-            iv, ct = blob[:ivlen], blob[ivlen:]
-        pt = _cg_decrypt(spec['cg'], mode, kb, ct, iv, spec['block'])
+        pt = _cg_decrypt(spec['cg'], mode, kb, blob, iv, spec['block'])
     elif spec['stream']:
         F = FACTORIES[spec['factory']]
         if spec.get('aead'):
-            iv = blob[:ivlen]
-            tag = blob[ivlen:ivlen + taglen]
-            ct = blob[ivlen + taglen:]
+            tag, ct = blob[:taglen], blob[taglen:]
             pt = F.new(key=kb, nonce=iv).decrypt_and_verify(ct, tag)
         elif spec['factory'] == 'ARC4':
             pt = F.new(kb).decrypt(blob)
-        elif iv_bytes is not None:
-            pt = F.new(key=kb, nonce=iv_bytes).decrypt(blob)
         else:
-            pt = F.new(key=kb, nonce=blob[:ivlen]).decrypt(blob[ivlen:])
+            pt = F.new(key=kb, nonce=iv).decrypt(blob)
     else:
         F = FACTORIES[spec['factory']]
         M = getattr(F, 'MODE_' + mode)
         if mode == 'ECB':
             pt = unpad(F.new(kb, M).decrypt(blob), spec['block'])
         elif mode in ('GCM', 'EAX'):
-            iv = blob[:ivlen]
-            tag = blob[ivlen:ivlen + taglen]
-            ct = blob[ivlen + taglen:]
+            tag, ct = blob[:taglen], blob[taglen:]
             pt = F.new(kb, M, nonce=iv).decrypt_and_verify(ct, tag)
+        elif mode == 'CBC':
+            pt = unpad(F.new(kb, M, iv=iv).decrypt(blob), spec['block'])
+        elif mode in ('CFB', 'OFB'):
+            pt = F.new(kb, M, iv=iv).decrypt(blob)
         else:
-            if iv_bytes is not None:
-                iv, ct = iv_bytes, blob
-            else:
-                iv, ct = blob[:ivlen], blob[ivlen:]
-            if mode == 'CBC':
-                pt = unpad(F.new(kb, M, iv=iv).decrypt(ct), spec['block'])
-            elif mode in ('CFB', 'OFB'):
-                pt = F.new(kb, M, iv=iv).decrypt(ct)
-            else:
-                pt = F.new(kb, M, nonce=iv).decrypt(ct)
+            pt = F.new(kb, M, nonce=iv).decrypt(blob)
     try:
         shown = pt.decode('utf-8')
         binary = False
@@ -243,14 +226,16 @@ def run(action, algorithm, mode, text, key, key_format, iv, data_format):
         raise ValueError('Unsupported mode for %s' % algorithm)
     kb = _fit_key(_key_bytes(key, key_format), algorithm, key_format)
     iv_bytes = _parse_iv(iv) if iv and iv.strip() else None
+    need = _iv_len(algorithm, mode)
     if iv_bytes is not None:
-        need = _iv_len(algorithm, mode)
         if need == 0:
             raise ValueError('%s does not use an IV/nonce' % algorithm)
         if len(iv_bytes) != need:
             raise ValueError('IV/nonce must be %d bytes (%d hex chars); got %d' % (need, need * 2, len(iv_bytes)))
     if action == 'encrypt':
         return _encrypt(algorithm, mode, kb, text.encode(), iv_bytes, data_format)
+    if need and iv_bytes is None:
+        raise ValueError('IV/nonce is required to decrypt this mode; paste the hex IV shown after encryption')
     blob = _decode(text, data_format)
     try:
         return _decrypt(algorithm, mode, kb, blob, iv_bytes, data_format)
@@ -276,14 +261,15 @@ def ui_spec():
 
 
 CONVENTIONS = (
-    "IV / nonce (and the GCM / EAX / Poly1305 auth tag) are generated on encrypt and prepended to the "
-    "output, then stripped automatically on decrypt, so a round-trip always works with the IV field left blank.\n"
-    "To decrypt an external ciphertext that carries a separate IV, paste the hex IV into the field before "
-    "decrypting; the tool clears the field again after each run.\n"
+    "On encrypt the IV / nonce is generated (or taken from the field if you set one) and kept in the IV "
+    "field so you can reuse it - the output is the raw ciphertext, with no IV baked in.\n"
+    "To decrypt, put the ciphertext in the input and the matching IV in the IV field, then hit DECRYPT. "
+    "Right after an encrypt you can just SWAP the output into the input and decrypt - the IV is already there.\n"
     "Passphrase keys are derived with SHA-256 (truncated to the key size). Hex / Base64 / UTF-8 keys must "
     "be the exact key length for the chosen algorithm.\n"
-    "GCM, EAX and ChaCha20-Poly1305 are authenticated - a wrong key or tampered ciphertext fails loudly. "
-    "ECB, DES, RC4, IDEA and friends are legacy / weak, handy for CTFs but not for real secrets."
+    "GCM, EAX and ChaCha20-Poly1305 are authenticated - the auth tag travels with the ciphertext and a "
+    "wrong key or tampered data fails loudly. ECB, DES, RC4, IDEA and friends are legacy / weak, handy for "
+    "CTFs but not for real secrets."
 )
 
 
