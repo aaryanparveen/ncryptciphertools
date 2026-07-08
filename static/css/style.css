@@ -651,10 +651,84 @@ textarea.form-control {
 select.form-control {
     cursor: pointer;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%235c5c70' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    -webkit-appearance: none;
+    background-color: var(--bg-2);
+    color: var(--tx-0);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23c43050' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 2rem;
+}
+
+select.form-control option {
+    background-color: var(--bg-2);
+    color: var(--tx-0);
+}
+
+select.form-control option:checked {
+    background-color: var(--red);
+    color: #fff;
+}
+
+.custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--tx-0);
+}
+
+.custom-select-trigger::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23c43050' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat center;
+}
+
+.custom-select-options {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 60;
+    background: var(--bg-2);
+    border: 1px solid var(--glass-border);
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-m);
+}
+
+.custom-select-options.hidden {
+    display: none;
+}
+
+.custom-select-option {
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--tx-1);
+    font-family: var(--mono);
+}
+
+.custom-select-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.custom-select-option.sel {
+    background: var(--red);
+    color: #fff;
 }
 
 .control-label {

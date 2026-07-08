@@ -10,12 +10,14 @@ TIER_1 = {
     'uuencode_cipher', 'base32_cipher', 'base85_cipher', 'url_encoding',
     'octal_cipher', 'braille', 'base_n_cipher', 'decimal_cipher',
     'leetspeak', 'brainfuck', 'dna_cipher', 'a1z26_cipher',
+    'nato_phonetic', 't9_cipher', 'base58_cipher', 'rot8000_cipher',
 }
 
 TIER_2 = {
     'caesar_cipher', 'bacon_cipher', 'rot5_cipher',
     'rot18_cipher', 'rot47_cipher', 'tap_code_cipher',
     'affine_cipher', 'rail_fence_cipher', 'polybius_cipher',
+    'scytale_cipher', 'fractionated_morse',
 }
 
 TIER_3 = {
@@ -24,6 +26,7 @@ TIER_3 = {
     'gronsfeld_cipher', 'porta_cipher', 'bifid_cipher',
     'nihilist_cipher', 'four_square_cipher', 'autoclave_cipher',
     'keyed_caesar', 'adfgvx_cipher',
+    'adfgx_cipher', 'two_square_cipher', 'trifid_cipher', 'running_key_cipher',
 }
 
 SKIP = {'recursive_solver', 'hash_lookup', 'book_cipher', 'hill_cipher', 'modern_cipher'}
@@ -31,6 +34,14 @@ SKIP = {'recursive_solver', 'hash_lookup', 'book_cipher', 'hill_cipher', 'modern
 RECURSIVE_KEYED = {
     'vigenere_cipher', 'beaufort_cipher', 'gronsfeld_cipher',
     'porta_cipher', 'autoclave_cipher',
+    'adfgvx_cipher', 'adfgx_cipher', 'two_square_cipher',
+    'trifid_cipher', 'running_key_cipher',
+}
+
+DEFAULT_DISABLED = {
+    'base58_cipher', 'rot8000_cipher', 'scytale_cipher', 'fractionated_morse',
+    'adfgx_cipher', 'two_square_cipher', 'trifid_cipher', 'running_key_cipher',
+    'adfgvx_cipher', 'book_cipher', 'hash_lookup', 'modern_cipher',
 }
 
 TRANSPOSITION = {'rail_fence_cipher', 'columnar_transposition'}
@@ -45,7 +56,7 @@ def _tier(cid):
     if cid in TIER_1: return 1
     if cid in TIER_2: return 2
     if cid in TIER_3: return 3
-    return 2
+    return None
 
 
 class RecursiveSolver(BaseCipher):
@@ -93,8 +104,10 @@ class RecursiveSolver(BaseCipher):
         depth_from_key, crib_from_key = self._parse_key(kwargs.get('key'))
         max_depth = depth_from_key
         crib = kwargs.get('crib') or crib_from_key or None
-        disabled = kwargs.get('disabled_ciphers') or []
-        if isinstance(disabled, str):
+        disabled = kwargs.get('disabled_ciphers')
+        if disabled is None:
+            disabled = DEFAULT_DISABLED
+        elif isinstance(disabled, str):
             disabled = [s.strip() for s in disabled.split(',') if s.strip()]
         return self._solve(text, registry, max_depth, crib, set(disabled))
 
@@ -138,6 +151,8 @@ class RecursiveSolver(BaseCipher):
             if cid in SKIP or cid == self.id or cid in disabled:
                 continue
             t = _tier(cid)
+            if t is None:
+                continue
             if t == 3 and cid not in RECURSIVE_KEYED:
                 continue
             tiers[t].append((cid, c))

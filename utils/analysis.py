@@ -319,7 +319,7 @@ ASCII_STRUCTURED_OPS = {
 }
 
 SELF_INVERTING_OPS = {
-    'reverse_text', 'rot13_cipher', 'rot47_cipher', 'atbash_cipher',
+    'reverse_text', 'rot13_cipher', 'rot47_cipher', 'atbash_cipher', 'rot8000_cipher',
 }
 
 

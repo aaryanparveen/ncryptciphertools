@@ -202,6 +202,48 @@
             inp.focus();
             inp.dispatchEvent(new Event('input', { bubbles: true }));
         });
+
+        function enhanceSelects(root) {
+            (root || document).querySelectorAll('select.form-control:not([data-enhanced])').forEach(sel => {
+                sel.setAttribute('data-enhanced', '1');
+                sel.style.display = 'none';
+                const wrap = document.createElement('div');
+                wrap.className = 'custom-select';
+                const trigger = document.createElement('button');
+                trigger.type = 'button';
+                trigger.className = 'custom-select-trigger form-control';
+                const list = document.createElement('div');
+                list.className = 'custom-select-options hidden';
+                const relabel = () => { trigger.querySelector('span').textContent = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : ''; };
+                trigger.innerHTML = '<span></span>';
+                Array.from(sel.options).forEach(opt => {
+                    const o = document.createElement('div');
+                    o.className = 'custom-select-option' + (opt.value === sel.value ? ' sel' : '');
+                    o.textContent = opt.text;
+                    o.addEventListener('click', () => {
+                        sel.value = opt.value;
+                        relabel();
+                        list.querySelectorAll('.custom-select-option').forEach(x => x.classList.remove('sel'));
+                        o.classList.add('sel');
+                        list.classList.add('hidden');
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    list.appendChild(o);
+                });
+                trigger.addEventListener('click', e => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.custom-select-options').forEach(l => { if (l !== list) l.classList.add('hidden'); });
+                    list.classList.toggle('hidden');
+                });
+                relabel();
+                sel.parentNode.insertBefore(wrap, sel);
+                wrap.appendChild(trigger);
+                wrap.appendChild(list);
+                wrap.appendChild(sel);
+            });
+        }
+        document.addEventListener('click', () => document.querySelectorAll('.custom-select-options').forEach(l => l.classList.add('hidden')));
+        document.addEventListener('DOMContentLoaded', () => enhanceSelects());
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/cursor.js') }}"></script>

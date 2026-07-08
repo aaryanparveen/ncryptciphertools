@@ -35,6 +35,8 @@ def _custom_url_for(name, **kw):
 CIPHER_REGISTRY = {}
 _executor = ThreadPoolExecutor(max_workers=4)
 
+from ciphers.recursive import DEFAULT_DISABLED
+
 
 def load_ciphers():
     import ciphers
@@ -86,7 +88,8 @@ def _apply_target_priority(results, target_plaintext):
 
 
 def _ctx(request, **extra):
-    return {"request": request, "url_for": _custom_url_for, "ciphers": CIPHER_REGISTRY, **extra}
+    return {"request": request, "url_for": _custom_url_for, "ciphers": CIPHER_REGISTRY,
+            "default_disabled": DEFAULT_DISABLED, **extra}
 
 
 @app.get("/", response_class=HTMLResponse)

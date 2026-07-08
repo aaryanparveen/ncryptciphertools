@@ -164,7 +164,7 @@
             <div class="cipher-checklist">
                 {% for id, c in ciphers.items() %}{% if id != 'recursive_solver' %}
                 <label title="{{ c.name }}">
-                    <input type="checkbox" class="crack-cipher-toggle" value="{{ id }}" checked>
+                    <input type="checkbox" class="crack-cipher-toggle" value="{{ id }}" {% if id not in default_disabled %}checked{% endif %}>
                     <span>{{ c.name }}</span>
                 </label>
                 {% endif %}{% endfor %}
@@ -365,9 +365,10 @@
     async function process(action, silent) {
         const text = document.getElementById('cipherInput').value;
         const output = document.getElementById('outputArea');
-        const { map, joined } = gatherControls();
-        const key = map.key !== undefined ? map.key : joined;
+        const { map } = gatherControls();
         const crib = map.crib || '';
+        const keyParts = Object.entries(map).filter(([k]) => k !== 'crib').map(([, v]) => v);
+        const key = keyParts.length > 1 ? keyParts.join(',') : (map.key !== undefined ? map.key : keyParts.join(','));
         if (!text) { output.innerText = ''; updateOutputMeta(); return; }
         if (!silent) output.innerText = "Processing...";
         try {
@@ -558,6 +559,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        if (typeof updateCrackDisabledCount === 'function') updateCrackDisabledCount();
         const cipherInput = document.getElementById('cipherInput');
         document.querySelectorAll('.cipher-control').forEach(c => {
             c.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { updateGrid(); liveProcess(); }, 300); });
