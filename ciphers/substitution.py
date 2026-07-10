@@ -14,6 +14,8 @@ class SubstitutionCipher(BaseCipher):
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Alphabet Key', 'placeholder': '26-letter substitution alphabet', 'default': 'QWERTYUIOPASDFGHJKLZXCVBNM'}]
+    @property
+    def interactive_key(self): return "substitution"
 
     def encrypt(self, text, key):
         key = str(key).upper().replace(' ', '')

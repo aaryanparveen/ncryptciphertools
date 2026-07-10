@@ -68,6 +68,10 @@ class BaseCipher(ABC):
     def examples(self) -> List[Dict[str, str]]:
         return []
 
+    @property
+    def interactive_key(self):
+        return None
+
     def get_metadata(self) -> Dict[str, Any]:
         return {
             'name': self.name, 'id': self.id, 'category': self.category,

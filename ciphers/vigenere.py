@@ -15,6 +15,8 @@ class VigenereCipher(BaseCipher):
     @property
     def examples(self):
         return [{'input': 'HELLO WORLD', 'output': 'RIJVS UYVJN', 'key': 'KEY'}]
+    @property
+    def interactive_key(self): return "vigenere"
 
     def encrypt(self, text, key):
         key = str(key).upper().replace(' ', '')

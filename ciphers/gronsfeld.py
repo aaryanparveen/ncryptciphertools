@@ -12,6 +12,8 @@ class GronsfeldCipher(BaseCipher):
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Numeric Key', 'placeholder': 'e.g. 31415', 'default': '31415'}]
+    @property
+    def interactive_key(self): return "gronsfeld"
 
     def encrypt(self, text, key):
         key = str(key).strip()

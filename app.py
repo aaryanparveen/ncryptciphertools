@@ -164,7 +164,7 @@ async def process_cipher(data: TextInput):
                     registry=CIPHER_REGISTRY,
                     key=data.key,
                     crib=data.crib,
-                    disabled_ciphers=data.disabled_ciphers or [],
+                    disabled_ciphers=data.disabled_ciphers,
                 ),
             )
             if not results:
@@ -198,7 +198,7 @@ async def crack_cipher(data: TextInput):
                 registry=CIPHER_REGISTRY,
                 key=data.key,
                 crib=data.crib,
-                disabled_ciphers=data.disabled_ciphers or [],
+                disabled_ciphers=data.disabled_ciphers,
                 target_plaintext=data.target_plaintext,
                 debug=data.debug,
             ),
@@ -257,7 +257,7 @@ async def universal_bruteforce(data: TextInput):
             text,
             CIPHER_REGISTRY,
             max_overall=50,
-            disabled_ciphers=data.disabled_ciphers or [],
+            disabled_ciphers=data.disabled_ciphers,
             target_plaintext=data.target_plaintext,
         ),
     )
@@ -280,7 +280,7 @@ async def solve(data: TextInput):
                     registry=CIPHER_REGISTRY,
                     key=data.key,
                     crib=data.crib,
-                    disabled_ciphers=data.disabled_ciphers or [],
+                    disabled_ciphers=data.disabled_ciphers,
                     target_plaintext=data.target_plaintext,
                     debug=data.debug,
                 ),
@@ -300,7 +300,7 @@ async def solve(data: TextInput):
             lambda: run_universal_bruteforce(
                 text,
                 CIPHER_REGISTRY,
-                disabled_ciphers=data.disabled_ciphers or [],
+                disabled_ciphers=data.disabled_ciphers,
                 target_plaintext=data.target_plaintext,
             ),
         )

@@ -19,6 +19,8 @@ class BeaufortCipher(BaseCipher):
     @property
     def examples(self):
         return [{'input': 'HELLO', 'output': 'DANZQ', 'key': 'KEY'}]
+    @property
+    def interactive_key(self): return "beaufort"
 
     @staticmethod
     def _parse(key):

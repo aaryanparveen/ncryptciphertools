@@ -1,8 +1,33 @@
 from .interface import BaseCipher, CipherResult
 from utils.analysis import (CRIB_MATCH_SCORE, passes_output_validation,
                             passes_branch_prefilter, SELF_INVERTING_OPS, english_confidence)
+from utils.dictionary import COMMON_WORDS
 import heapq
 import time
+import re
+
+_WORD_RE = re.compile(r"[a-z']+")
+
+
+def _english_score(pt, crib_l=None):
+    if crib_l and crib_l in pt.lower():
+        return float(CRIB_MATCH_SCORE)
+    low = pt.lower()
+    if ('flag{' in low or 'ctf{' in low or '://' in low) and '}' in pt:
+        return 90.0
+    letters = sum(1 for c in pt if c.isalpha())
+    if letters < 6:
+        return 0.0
+    conf = english_confidence(pt)
+    alpha_ratio = letters / len(pt)
+    if alpha_ratio < 0.55:
+        conf *= alpha_ratio / 0.55
+    words = _WORD_RE.findall(low)
+    total = sum(len(w) for w in words)
+    if total:
+        covered = sum(len(w) for w in words if len(w) >= 4 and w in COMMON_WORDS)
+        conf *= 0.2 + 0.8 * (covered / total)
+    return conf
 
 TIER_1 = {
     'base64_cipher', 'hex_cipher', 'binary_cipher', 'morse_code',
@@ -45,6 +70,21 @@ DEFAULT_DISABLED = {
 }
 
 TRANSPOSITION = {'rail_fence_cipher', 'columnar_transposition'}
+
+DEEP_ENCODINGS = [
+    'base64_cipher', 'base85_cipher', 'base32_cipher', 'hex_cipher',
+    'base58_cipher', 'base_n_cipher', 'binary_cipher', 'octal_cipher',
+    'decimal_cipher', 'url_encoding', 'uuencode_cipher',
+]
+
+DEEP_ENCODING_DEPTH = 30
+
+COLLECT_MIN = 30.0
+
+ALWAYS_DECODE = {
+    'rot13_cipher', 'atbash_cipher', 'reverse_text', 'rot5_cipher',
+    'rot18_cipher', 'rot47_cipher', 'rot8000_cipher',
+}
 
 IDENTIFY_GATED = {
     'leetspeak', 'dna_cipher', 'brainfuck', 'a1z26_cipher', 'braille',
@@ -108,7 +148,76 @@ class RecursiveSolver(BaseCipher):
             disabled = DEFAULT_DISABLED
         elif isinstance(disabled, str):
             disabled = [s.strip() for s in disabled.split(',') if s.strip()]
-        return self._solve(text, registry, max_depth, crib, set(disabled))
+        disabled = set(disabled)
+
+        deep, peeled_text, peel_path = self._peel_encodings(text, registry, crib, disabled)
+        if deep and max(r.confidence for r in deep) >= 60.0:
+            merged = list(deep)
+        elif peel_path:
+            merged = list(deep)
+            for r in self._solve(peeled_text, registry, max_depth, crib, disabled):
+                meta = dict(r.metadata or {})
+                meta['path'] = peel_path + meta.get('path', [])
+                r.metadata = meta
+                merged.append(r)
+        else:
+            merged = deep + self._solve(text, registry, max_depth, crib, disabled)
+        merged.sort(key=lambda x: (-x.confidence, len((x.metadata or {}).get('path', []))))
+        unique, seen = [], set()
+        for r in merged:
+            if r.plaintext not in seen:
+                unique.append(r)
+                seen.add(r.plaintext)
+        return unique[:30]
+
+    def _peel_encodings(self, text, registry, crib, disabled):
+        encs = [(cid, registry[cid]) for cid in DEEP_ENCODINGS if cid in registry and cid not in disabled]
+        if not encs:
+            return []
+        crib_l = crib.lower() if crib else None
+
+        def score(pt):
+            return _english_score(pt, crib_l)
+
+        results = []
+        cur = text
+        path = []
+        seen = {text[:400]}
+        for _ in range(DEEP_ENCODING_DEPTH):
+            nxt = None
+            for cid, cipher in encs:
+                if not passes_branch_prefilter(cid, cur[:5000]):
+                    continue
+                try:
+                    cands = cipher.crack(cur, registry=registry)
+                except Exception:
+                    continue
+                for res in cands[:1]:
+                    pt = res.plaintext
+                    if not pt or len(pt) < 2 or pt.strip() == cur.strip():
+                        continue
+                    if pt.lstrip().startswith('Error'):
+                        continue
+                    if not passes_output_validation(pt):
+                        continue
+                    if pt[:400] in seen:
+                        continue
+                    nxt = (pt, cipher.name, res.key)
+                    break
+                if nxt:
+                    break
+            if not nxt:
+                break
+            pt, name, key = nxt
+            seen.add(pt[:400])
+            step = name + (f" [key={key}]" if key and str(key) not in ('None', 'N/A', '') else '')
+            path = path + [step]
+            cur = pt
+            s = score(cur)
+            if s >= COLLECT_MIN:
+                results.append(CipherResult(cur, round(s, 1), " -> ".join(path),
+                                            metadata={'path': list(path), 'depth': len(path), 'solved': True}))
+        return results, cur, path
 
     def _solve(self, text, registry, max_depth, crib=None, disabled=None):
         disabled = disabled or set()
@@ -121,25 +230,14 @@ class RecursiveSolver(BaseCipher):
         TIER1_BOOST = 12.0
         EARLY_EXIT = 72.0
         KEYED_GATE = 55.0
+        KEYED_IDENTIFY_FLOOR = 0.02
         keyed_calls = 0
         best_conf = 0.0
 
         crib_l = crib.lower() if crib else None
 
         def score(pt):
-            if crib_l and crib_l in pt.lower():
-                return float(CRIB_MATCH_SCORE)
-            low = pt.lower()
-            if ('flag{' in low or 'ctf{' in low or '://' in low) and '}' in pt:
-                return 90.0
-            letters = sum(1 for c in pt if c.isalpha())
-            if letters < 6:
-                return 0.0
-            conf = english_confidence(pt)
-            alpha_ratio = letters / len(pt)
-            if alpha_ratio < 0.55:
-                conf *= alpha_ratio / 0.55
-            return conf
+            return _english_score(pt, crib_l)
 
         if crib_l and crib_l in text.lower():
             return [CipherResult(text, float(CRIB_MATCH_SCORE), "Crib match in input",
@@ -180,6 +278,7 @@ class RecursiveSolver(BaseCipher):
             for tier in [1, 2, 3]:
                 if tier == 2 and depth >= 7:
                     continue
+                tier_list = tiers[tier]
                 if tier == 3:
                     if (depth > KEYED_MAX_DEPTH or keyed_calls >= KEYED_MAX_CALLS
                             or best_conf >= KEYED_GATE):
@@ -187,8 +286,18 @@ class RecursiveSolver(BaseCipher):
                     n_alpha = sum(1 for ch in cur if ch.isalpha())
                     if len(cur) < 12 or n_alpha < 0.6 * len(cur):
                         continue
+                    ranked = []
+                    for kcid, kcipher in tiers[3]:
+                        try:
+                            idn = kcipher.identify(cur) or 0.0
+                        except Exception:
+                            idn = 0.0
+                        if idn >= KEYED_IDENTIFY_FLOOR:
+                            ranked.append((idn, kcid, kcipher))
+                    ranked.sort(key=lambda x: -x[0])
+                    tier_list = [(kcid, kcipher) for _, kcid, kcipher in ranked]
 
-                for cid, cipher in tiers[tier]:
+                for cid, cipher in tier_list:
                     if tier >= 2 and cid == last_op:
                         continue
                     if cid in TRANSPOSITION and last_op in TRANSPOSITION:
@@ -208,6 +317,13 @@ class RecursiveSolver(BaseCipher):
                         if tier == 3:
                             keyed_calls += 1
                         cands = cipher.crack(cur, registry=registry)
+                        if cid in ALWAYS_DECODE:
+                            try:
+                                dec = cipher.decrypt(cur, None)
+                                if dec and dec != cur and not str(dec).lstrip().startswith('Error'):
+                                    cands = [CipherResult(dec, 0.0)] + list(cands)
+                            except Exception:
+                                pass
                         keep = 3 if tier == 1 else 2
                         for res in cands[:keep]:
                             pt = res.plaintext
@@ -245,6 +361,8 @@ class RecursiveSolver(BaseCipher):
                                 cnt += 1
                     except Exception:
                         pass
+                    if tier == 3 and best_conf >= KEYED_GATE:
+                        break
                     if done:
                         break
                 if done:

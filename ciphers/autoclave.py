@@ -12,6 +12,8 @@ class AutoclaveCipher(BaseCipher):
     @property
     def controls(self):
         return [{'name': 'key', 'type': 'text', 'label': 'Key', 'placeholder': 'Enter key...', 'default': 'KEY'}]
+    @property
+    def interactive_key(self): return "autoclave"
 
     def encrypt(self, text, key):
         key = str(key).upper().replace(' ', '')
