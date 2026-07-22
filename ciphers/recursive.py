@@ -163,8 +163,11 @@ class RecursiveSolver(BaseCipher):
         else:
             merged = deep + self._solve(text, registry, max_depth, crib, disabled)
         merged.sort(key=lambda x: (-x.confidence, len((x.metadata or {}).get('path', []))))
+        best_real = max((r.confidence for r in merged if not (r.metadata or {}).get('clean_decode')), default=0.0)
         unique, seen = [], set()
         for r in merged:
+            if (r.metadata or {}).get('clean_decode') and best_real >= r.confidence + 10:
+                continue
             if r.plaintext not in seen:
                 unique.append(r)
                 seen.add(r.plaintext)
@@ -217,6 +220,15 @@ class RecursiveSolver(BaseCipher):
             if s >= COLLECT_MIN:
                 results.append(CipherResult(cur, round(s, 1), " -> ".join(path),
                                             metadata={'path': list(path), 'depth': len(path), 'solved': True}))
+        if path and not any(r.plaintext == cur for r in results):
+            plen = len(cur)
+            pr = sum(1 for c in cur if c.isprintable() or c in '\n\r\t')
+            if plen >= 2 and pr / plen >= 0.95:
+                ascii_clean = all(ord(c) < 128 for c in cur)
+                conf = max(score(cur), 52.0 if ascii_clean else 44.0)
+                results.append(CipherResult(cur, round(conf, 1), " -> ".join(path),
+                                            metadata={'path': list(path), 'depth': len(path),
+                                                      'clean_decode': True, 'solved': True}))
         return results, cur, path
 
     def _solve(self, text, registry, max_depth, crib=None, disabled=None):
@@ -343,6 +355,8 @@ class RecursiveSolver(BaseCipher):
                                 step += f" [key={res.key}]"
                             np = list(path) + [step]
                             ns = score(pt)
+                            if len(pt) < 14 and len(np) >= 5:
+                                ns *= max(0.2, 1.0 - 0.25 * (len(np) - 4))
 
                             if ns >= COLLECT_MIN:
                                 results.append(CipherResult(

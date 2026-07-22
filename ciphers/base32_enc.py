@@ -17,11 +17,17 @@ class Base32Cipher(BaseCipher):
         return base64.b32encode(text.encode()).decode()
 
     def decrypt(self, text, key=None):
-        text = text.strip().upper()
-        padding = 8 - len(text) % 8
-        if padding != 8:
-            text += '=' * padding
-        return base64.b32decode(text).decode('utf-8', errors='replace')
+        t = ''.join(str(text).split()).upper().rstrip('=')
+        for cut in range(8):
+            n = len(t) - cut
+            if n <= 0:
+                break
+            s = t[:n]
+            try:
+                return base64.b32decode(s + '=' * ((-n) % 8)).decode('utf-8', errors='replace')
+            except Exception:
+                continue
+        return ''
 
     def crack(self, text, **kwargs):
         try:

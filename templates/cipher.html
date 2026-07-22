@@ -283,6 +283,7 @@
 
 <script>
     const CIPHER_ID = '{{ cipher.id }}';
+    const CIPHER_NAME = '{{ cipher.name }}';
     let debounceTimer, hexViewMode = false;
 
     function switchTab(tab, btn) {
@@ -492,22 +493,22 @@
                 const bc = pct > 60 ? 'confidence-high' : pct > 30 ? 'confidence-med' : 'confidence-low';
                 const meta = res.metadata || {};
                 let keyStr = res.key || '';
-                let pathHtml = '';
+                let leftHtml;
                 if (meta.path && Array.isArray(meta.path) && meta.path.length > 0) {
-                    const steps = meta.path.map(s => `<span class="path-step">${s}</span>`);
-                    pathHtml = `<div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:0.4rem;">${steps.join('<span class="path-arrow"><svg class="ic"><use href="#i-angle-right"></use></svg></span>')}</div>`;
-                    keyStr = '';
+                    leftHtml = meta.path.map(s => `<span class="path-step">${s}</span>`)
+                        .join('<span class="path-arrow"><svg class="ic"><use href="#i-angle-right"></use></svg></span>');
+                } else {
+                    const label = keyStr ? `${CIPHER_NAME} [key=${keyStr}]` : CIPHER_NAME;
+                    leftHtml = `<span class="path-step">${label}</span>`;
                 }
                 let targetBadge = meta.target_hit ? '<span class="flag-badge">TARGET</span> ' : '';
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem;">
-                        <div style="display:flex; align-items:center; gap:0.4rem;">
-                            ${targetBadge}
-                            <span style="font-family:var(--mono); font-size:0.78rem; color:var(--tx-0); font-weight:700;">${keyStr}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0;">
+                            ${targetBadge}${leftHtml}
                         </div>
-                        <span class="confidence-badge ${bc}">${pct}%</span>
+                        <span class="confidence-badge ${bc}" style="flex-shrink:0;">${pct}%</span>
                     </div>
-                    ${pathHtml}
                     <div class="result-preview">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>
                     <div class="output-actions" style="margin-top:auto; padding-top:0.5rem;">
                         <button onclick="event.stopPropagation(); useResult(\`${content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">USE</button>

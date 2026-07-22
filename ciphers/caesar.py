@@ -36,10 +36,9 @@ class CaesarCipher(BaseCipher):
         for shift in range(26):
             pt = self.decrypt(text, str(shift))
             score = english_confidence(pt)
-            if score > 20:
-                results.append(CipherResult(pt, round(score, 1), key=str(shift)))
+            results.append(CipherResult(pt, round(score, 1), key=str(shift)))
         results.sort(key=lambda x: x.confidence, reverse=True)
-        return results[:10]
+        return results
 
     def identify(self, text):
         results = self.crack(text)
