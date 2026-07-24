@@ -64,15 +64,15 @@ class BifidCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         from utils.analysis import english_confidence
-        from utils.dictionary import COMMON_WORDS
+        from utils.grids import keyword_candidates
         results = []
-        for word in list(COMMON_WORDS)[:150]:
+        for word in keyword_candidates(kwargs.get('max_keys', 300), 2, 12):
             try:
-                pt = self.decrypt(text, word.upper())
+                pt = self.decrypt(text, word)
                 score = english_confidence(pt)
                 if score > 20:
-                    results.append(CipherResult(pt, round(score, 1), key=word.upper()))
-            except:
+                    results.append(CipherResult(pt, round(score, 1), key=word))
+            except Exception:
                 continue
         results.sort(key=lambda x: x.confidence, reverse=True)
         return results[:10]

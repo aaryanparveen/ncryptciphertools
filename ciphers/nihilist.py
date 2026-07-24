@@ -76,16 +76,18 @@ class NihilistCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         from utils.analysis import english_confidence
-        from utils.dictionary import COMMON_WORDS
+        from utils.grids import keyword_candidates
         nums = text.strip().split()
         if not all(n.isdigit() for n in nums):
             return []
         results = []
-        words = list(COMMON_WORDS)[:80]
-        for gk in words[:20]:
-            for ck in words[:20]:
+        words = keyword_candidates(kwargs.get('max_keys', 30), 2, 12)
+        for gk in words:
+            for ck in words:
                 try:
                     pt = self.decrypt(text, f"{gk},{ck}")
+                    if not pt or '?' in pt:
+                        continue
                     score = english_confidence(pt)
                     if score > 20:
                         results.append(CipherResult(pt, round(score, 1), key=f"{gk},{ck}"))

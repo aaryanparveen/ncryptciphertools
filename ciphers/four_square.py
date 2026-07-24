@@ -65,11 +65,11 @@ class FourSquareCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         from utils.analysis import english_confidence
-        from utils.dictionary import COMMON_WORDS
+        from utils.grids import keyword_candidates
         results = []
-        words = list(COMMON_WORDS)[:100]
-        for w1 in words[:30]:
-            for w2 in words[:30]:
+        words = keyword_candidates(kwargs.get('max_keys', 30), 2, 12)
+        for w1 in words:
+            for w2 in words:
                 try:
                     pt = self.decrypt(text, f"{w1},{w2}")
                     score = english_confidence(pt)

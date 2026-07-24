@@ -70,7 +70,24 @@ class ADFGVXCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        return []                                    
+        from utils.analysis import english_confidence
+        from utils.grids import keyword_candidates
+        clean = ''.join(c for c in str(text).upper() if c in 'ADFGVX')
+        if len(clean) < 8:
+            return []
+        results, seen = [], set()
+        for kw in keyword_candidates(kwargs.get('max_keys', 500), 2, 12):
+            if len(clean) % len(kw) != 0:
+                continue
+            pt = self.decrypt(clean, f"{ADFGVX_GRID},{kw}")
+            if not pt or pt.lstrip().startswith('Error') or pt in seen:
+                continue
+            sc = english_confidence(pt)
+            if sc > 25:
+                seen.add(pt)
+                results.append(CipherResult(pt, round(sc, 1), key=kw))
+        results.sort(key=lambda x: x.confidence, reverse=True)
+        return results[:10]
 
     def identify(self, text):
         clean = text.strip().replace(' ', '')

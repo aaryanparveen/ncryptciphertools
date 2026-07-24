@@ -31,8 +31,8 @@ class ADFGXCipher(BaseCipher):
 
     def _parse_keys(self, key):
         parts = str(key).split(',')
-        candidate = parts[0].strip().upper().replace('J', 'I') if parts else ''
-        if len(candidate) == 25 and len(set(candidate)) == 25 and 'J' not in candidate:
+        candidate = parts[0].strip().upper() if parts else ''
+        if len(candidate) == 25 and len(set(candidate)) == 25:
             grid = candidate
         else:
             grid = ADFGX_GRID
@@ -42,8 +42,9 @@ class ADFGXCipher(BaseCipher):
         return grid, trans_key
 
     def encrypt(self, text, key):
+        from utils.grids import fold_text
         grid, trans_key = self._parse_keys(key)
-        clean = ''.join(c for c in text.upper().replace('J', 'I') if c in grid)
+        clean = fold_text(text, grid)
 
         fractionated = []
         for c in clean:
@@ -93,7 +94,25 @@ class ADFGXCipher(BaseCipher):
         return ''.join(result)
 
     def crack(self, text, **kwargs):
-        return []
+        from utils.analysis import english_confidence
+        from utils.grids import ALPHABETS_25, keyword_candidates
+        clean = ''.join(c for c in str(text).upper() if c in 'ADFGX')
+        if len(clean) < 8:
+            return []
+        results, seen = [], set()
+        for kw in keyword_candidates(kwargs.get('max_keys', 500), 2, 12):
+            if len(clean) % len(kw) != 0:
+                continue
+            for omit, alpha in ALPHABETS_25:
+                pt = self.decrypt(clean, f"{alpha},{kw}")
+                if not pt or pt.lstrip().startswith('Error') or pt in seen:
+                    continue
+                sc = english_confidence(pt)
+                if sc > 25:
+                    seen.add(pt)
+                    results.append(CipherResult(pt, round(sc, 1), key=f"-{omit},{kw}"))
+        results.sort(key=lambda x: x.confidence, reverse=True)
+        return results[:10]
 
     def identify(self, text):
         clean = text.strip().replace(' ', '')

@@ -55,16 +55,21 @@ class PolybiusCipher(BaseCipher):
 
     def crack(self, text, **kwargs):
         from utils.analysis import english_confidence
-
-        try:
-            pt = self.decrypt(text, '')
+        from utils.grids import keyword_candidates
+        results, seen = [], set()
+        for kw in [''] + keyword_candidates(kwargs.get('max_keys', 300), 2, 12):
+            try:
+                pt = self.decrypt(text, kw)
+            except Exception:
+                continue
+            if not pt or pt.lstrip().startswith('Error') or pt in seen:
+                continue
             score = english_confidence(pt)
-            results = []
             if score > 20:
-                results.append(CipherResult(pt, round(score, 1), key='Standard'))
-            return results
-        except:
-            return []
+                seen.add(pt)
+                results.append(CipherResult(pt, round(score, 1), key=kw or 'Standard'))
+        results.sort(key=lambda x: x.confidence, reverse=True)
+        return results[:10]
 
     def identify(self, text):
         nums = text.strip().replace(' ', '')
